@@ -380,6 +380,57 @@ func (c *Client) ClaimNameplate(ctx context.Context, nameplate string) (*Claimed
 	}
 }
 
+func (c *Client) ListNameplates(ctx context.Context) (*NameplatesMsg, error) {
+	var (
+		nameplatesResp NameplatesMsg
+		listMsg        ListMsg
+	)
+
+	msgWaiter, err := c.waitFor(ctx, &nameplatesResp)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = c.SendAndWait(ctx, &listMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	select {
+	case <-msgWaiter.resultChan:
+		return &nameplatesResp, nil
+	case <-ctx.Done():
+		c.clearWaiter(msgWaiter)
+		return nil, ctx.Err()
+	}
+}
+
+func (c *Client) ReleaseNameplate(ctx context.Context, nameplate string) (*ReleasedRespMsg, error) {
+	var releasedResp ReleasedRespMsg
+
+	releaseReq := ReleaseMsg{
+		Nameplate: nameplate,
+	}
+
+	msgWaiter, err := c.waitFor(ctx, &releasedResp)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = c.SendAndWait(ctx, &releaseReq)
+	if err != nil {
+		return nil, err
+	}
+
+	select {
+	case <-msgWaiter.resultChan:
+		return &releasedResp, nil
+	case <-ctx.Done():
+		c.clearWaiter(msgWaiter)
+		return nil, ctx.Err()
+	}
+}
+
 func (c *Client) OpenMailbox(ctx context.Context, mailbox string) error {
 	openMsg := OpenMsg{
 		Mailbox: mailbox,

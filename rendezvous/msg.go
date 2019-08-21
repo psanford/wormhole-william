@@ -63,7 +63,7 @@ type OpenMsg struct {
 	Mailbox string `json:"mailbox"`
 }
 
-// Client sent add message
+// Client sent add message to add a message to a mailbox.
 type AddMsg struct {
 	Type  string `json:"type" rendezvous_value:"add"`
 	ID    string `json:"id"`
@@ -74,7 +74,7 @@ type AddMsg struct {
 
 // Server sent message message
 type MessageMsg struct {
-	Type  string `json:"type" rendezvous_value:"add"`
+	Type  string `json:"type" rendezvous_value:"message"`
 	ID    string `json:"id"`
 	Side  string `json:"side"`
 	Phase string `json:"phase"`
@@ -84,9 +84,39 @@ type MessageMsg struct {
 	ServerTX float64 `json:"server_tx"`
 }
 
+// Client sent list message to list nameplates.
+type ListMsg struct {
+	Type string `json:"type" rendezvous_value:"list"`
+	ID   string `json:"id"`
+}
+
+// Server sent nameplates message.
+// The server sends this in response to ListMsg.
+// It contains the list of active nameplates.
+type NameplatesMsg struct {
+	Type       string `json:"type" rendezvous_value:"nameplates"`
+	Nameplates []struct {
+		ID string `json:"id"`
+	} `json:"nameplates"`
+	ServerTX float64 `json:"server_tx"`
+}
+
+// Client sent release message to release a nameplate.
+type ReleaseMsg struct {
+	Type      string `json:"type" rendezvous_value:"release"`
+	ID        string `json:"id"`
+	Nameplate string `json:"nameplate"`
+}
+
+// Server sent response to release request.
+type ReleasedRespMsg struct {
+	Type     string  `json:"type" rendezvous_value:"released"`
+	ServerTX float64 `json:"server_tx"`
+}
+
 // Server sent error message
 type ErrorMsg struct {
-	Type     string      `json:"type" rendezvous_value:"type"`
+	Type     string      `json:"type" rendezvous_value:"error"`
 	Error    string      `json:"error"`
 	Orig     interface{} `json:"orig"`
 	ServerTx float64     `json:"server_tx"`
@@ -100,17 +130,21 @@ type genericServerMsg struct {
 }
 
 var msgMap = map[string]interface{}{
-	"welcome":   WelcomeMsg{},
-	"bind":      BindMsg{},
-	"allocate":  AllocateMsg{},
-	"ack":       AckMsg{},
-	"allocated": AllocatedRespMsg{},
-	"claim":     ClaimMsg{},
-	"claimed":   ClaimedRespMsg{},
-	"open":      OpenMsg{},
-	"add":       AddMsg{},
-	"message":   MessageMsg{},
-	"error":     ErrorMsg{},
+	"welcome":    WelcomeMsg{},
+	"bind":       BindMsg{},
+	"allocate":   AllocateMsg{},
+	"ack":        AckMsg{},
+	"allocated":  AllocatedRespMsg{},
+	"claim":      ClaimMsg{},
+	"claimed":    ClaimedRespMsg{},
+	"open":       OpenMsg{},
+	"add":        AddMsg{},
+	"message":    MessageMsg{},
+	"list":       ListMsg{},
+	"nameplates": NameplatesMsg{},
+	"release":    ReleaseMsg{},
+	"released":   ReleasedRespMsg{},
+	"error":      ErrorMsg{},
 }
 
 func randHex(n int) string {
