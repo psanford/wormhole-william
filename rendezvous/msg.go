@@ -1,18 +1,25 @@
 package rendezvous
 
+import (
+	"crypto/rand"
+	"fmt"
+	"io"
+)
+
 // Server sent wecome message
 type WelcomeMsg struct {
 	Type     string                 `json:"type" rendezvous_value:"welcome"`
 	Welcome  map[string]interface{} `json:"welcome"`
 	ServerTX float64                `json:"server_tx"`
+	Error    string                 `json:"error"`
 }
 
 // Client sent bind message
 type BindMsg struct {
 	Type  string `json:"type" rendezvous_value:"bind"`
+	ID    string `json:"id"`
 	Side  string `json:"side"`
 	AppID string `json:"appid"`
-	ID    string `json:"id"`
 }
 
 // Client sent aollocate message
@@ -75,4 +82,43 @@ type MessageMsg struct {
 	Body     string  `json:"body"`
 	ServerRX float64 `json:"server_rx"`
 	ServerTX float64 `json:"server_tx"`
+}
+
+// Server sent error message
+type ErrorMsg struct {
+	Type     string      `json:"type" rendezvous_value:"type"`
+	Error    string      `json:"error"`
+	Orig     interface{} `json:"orig"`
+	ServerTx float64     `json:"server_tx"`
+}
+
+type genericServerMsg struct {
+	Type     string  `json:"type"`
+	ServerTX float64 `json:"server_tx"`
+	ID       string  `json:"id"`
+	Error    string  `json:"error"`
+}
+
+var msgMap = map[string]interface{}{
+	"welcome":   WelcomeMsg{},
+	"bind":      BindMsg{},
+	"allocate":  AllocateMsg{},
+	"ack":       AckMsg{},
+	"allocated": AllocatedRespMsg{},
+	"claim":     ClaimMsg{},
+	"claimed":   ClaimedRespMsg{},
+	"open":      OpenMsg{},
+	"add":       AddMsg{},
+	"message":   MessageMsg{},
+	"error":     ErrorMsg{},
+}
+
+func randHex(n int) string {
+	buf := make([]byte, n)
+	_, err := io.ReadFull(rand.Reader, buf)
+	if err != nil {
+		panic(err)
+	}
+
+	return fmt.Sprintf("%x", buf)
 }
