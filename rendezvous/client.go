@@ -1,4 +1,4 @@
-// Package rendezvous provides a websocket rendezvous client.
+// Package rendezvous provides a client for magic wormhole rendezvous servers.
 package rendezvous
 
 import (
@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -14,278 +13,446 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func NewClient(url string) *Client {
+// NewClient returns a Rendezvous client. URL is the websocket
+// url of Rendezvous server. SideID is the id for the client to
+// use to distinguish messages in a mailbox from the other client.
+// AppID is the application identity string of the client.
+//
+// Two clients can only communicate if they have the same AppID.
+func NewClient(url, sideID, appID string) *Client {
 	return &Client{
-		url:            url,
-		recvChan:       make(chan interface{}),
-		sendChan:       make(chan interface{}),
-		errorChan:      make(chan error, 1),
-		ackWaiters:     make(map[string]chan interface{}),
-		msgTypeWaiters: make(map[string]*msgWaiter),
+		url:         url,
+		sideID:      sideID,
+		appID:       appID,
+		pendingMsgs: make([]pendingMsg, 0, 2),
+
+		mailboxMsgs:           make([]MailboxEvent, 0),
+		pendingMailboxWaiters: make(map[uint32]chan int),
+
+		pendingMsgWaiters: make(map[uint32]chan uint32),
 	}
 }
 
-type msgWaiter struct {
-	msg        interface{}
-	resultChan chan struct{}
-	msgType    string
-	id         uint32
-}
-
-type waitFor struct {
+type pendingMsg struct {
+	// id will be monotonically increasing for each received
+	// message so waiters can know if they have seen all the
+	// pending messages or not
+	id      uint32
 	msgType string
-	ID      string
+	raw     []byte
 }
 
 type Client struct {
-	url   string
-	appID string
+	url       string
+	appID     string
+	sideID    string
+	mailboxID string
 
 	wsClient *websocket.Conn
 
-	closed int32
+	mailboxMsgs           []MailboxEvent
+	pendingMailboxWaiters map[uint32]chan int
 
-	recvChan  chan interface{}
-	sendChan  chan interface{}
-	errorChan chan error
+	pendingMsgIDCntr     uint32
+	pendingMsgWaiterCntr uint32
 
-	waitMu          sync.Mutex
-	ackWaiters      map[string]chan interface{}
-	waiterIDCounter uint32
-	msgTypeWaiters  map[string]*msgWaiter
+	mu                sync.Mutex
+	pendingMsgs       []pendingMsg
+	pendingMsgWaiters map[uint32]chan uint32
+
+	mailboxChan chan MailboxEvent
+
+	clientState clientState
+	err         error
+}
+
+type MailboxEvent struct {
+	// Error will be non nil if an error occured
+	// while waiting for messages
+	Error error
+	Side  string
+	Phase string
+	Body  string
+}
+
+type clientState int32
+
+const (
+	statePending clientState = iota
+	stateOpen
+	stateError
+	stateClosed
+)
+
+func (c clientState) String() string {
+	switch c {
+	case statePending:
+		return "Pending"
+	case stateOpen:
+		return "Open"
+	case stateError:
+		return "Error"
+	case stateClosed:
+		return "Closed"
+	default:
+		return fmt.Sprintf("Unkown client state: %d", c)
+	}
 }
 
 func (c *Client) closeWithError(err error) {
-	c.errorChan <- err
-	close(c.recvChan)
+	atomic.StoreInt32((*int32)(&c.clientState), int32(stateError))
+	c.err = err
 }
 
-func (c *Client) Run(ctx context.Context) {
+type ConnectInfo struct {
+	MOTD              string
+	CurrentCLIVersion string
+}
+
+// Connect opens a connection and binds to the rendezvous server. It
+// returns the Welcome information the server responds with.
+func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
+	swapped := atomic.CompareAndSwapInt32((*int32)(&c.clientState), int32(statePending), int32(stateOpen))
+	if !swapped {
+		return nil, fmt.Errorf("Current client state %s != Pending, cannot connect", c.clientState)
+	}
+
 	var err error
 	c.wsClient, _, err = websocket.DefaultDialer.Dial(c.url, nil)
 	if err != nil {
-		c.closeWithError(fmt.Errorf("Dial %s: %s", c.url, err))
-		return
+		wrappedErr := fmt.Errorf("Dial %s: %s", c.url, err)
+		c.closeWithError(wrappedErr)
+		return nil, wrappedErr
 	}
-	defer c.wsClient.Close()
+
+	go c.readMessages(ctx)
+
+	var welcome welcomeMsg
+	err = c.readMsg(ctx, &welcome)
+	if err != nil {
+		c.closeWithError(err)
+		return nil, err
+	}
+
+	if welcome.Welcome.Error != "" {
+		err := fmt.Errorf("Server error: %s", err)
+		c.closeWithError(err)
+		return nil, err
+	}
+
+	if err := c.bind(ctx, c.sideID, c.appID); err != nil {
+		c.closeWithError(err)
+		return nil, err
+	}
+
+	info := ConnectInfo{
+		MOTD:              welcome.Welcome.MOTD,
+		CurrentCLIVersion: welcome.Welcome.CurrentCLIVersion,
+	}
+
+	return &info, nil
+}
+
+func (c *Client) searchPendingMsgs(ctx context.Context, msgType string) *pendingMsg {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for i, pending := range c.pendingMsgs {
+		if pending.msgType == msgType {
+			copyMsg := pending
+			orig := c.pendingMsgs
+			c.pendingMsgs = c.pendingMsgs[:i]
+			c.pendingMsgs = append(c.pendingMsgs, orig[i+1:]...)
+
+			return &copyMsg
+		}
+	}
+
+	return nil
+}
+
+func (c *Client) registerWaiter() (uint32, <-chan uint32) {
+	nextID := atomic.AddUint32(&c.pendingMsgWaiterCntr, 1)
+	ch := make(chan uint32, 1)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.pendingMsgWaiters[nextID] = ch
+	if len(c.pendingMsgs) > 0 {
+		ch <- c.pendingMsgs[len(c.pendingMsgs)-1].id
+	}
+
+	return nextID, ch
+}
+
+func (c *Client) deregisterWaiter(id uint32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.pendingMsgWaiters, id)
+}
+
+func (c *Client) readMsg(ctx context.Context, m interface{}) error {
+	expectMsgType := msgType(m)
+
+	waiterID, ch := c.registerWaiter()
+	defer c.deregisterWaiter(waiterID)
 
 	for {
-		var genericMsg genericServerMsg
+		_, ok := <-ch
+		if !ok {
 
-		_, msg, err := c.wsClient.ReadMessage()
-		if err != nil {
-			c.closeWithError(fmt.Errorf("WS Read: %s", err))
-			break
 		}
+		msg := c.searchPendingMsgs(ctx, expectMsgType)
+		if msg != nil {
 
-		err = json.Unmarshal(msg, &genericMsg)
-		if err != nil {
-			c.closeWithError(fmt.Errorf("JSON unmarshal: %s", err))
-			break
-		}
-
-		log.Printf("recv: %+v", genericMsg)
-
-		protoType, found := msgMap[genericMsg.Type]
-		if !found {
-			log.Printf("Unknown msg type: %s %v %s\n", genericMsg.Type, genericMsg, msg)
-			continue
-		}
-
-		var (
-			resultPtr   interface{}
-			foundWaiter bool
-			mw          *msgWaiter
-		)
-
-		c.waitMu.Lock()
-		if w := c.msgTypeWaiters[genericMsg.Type]; w != nil {
-			mw = w
-			foundWaiter = true
-			delete(c.msgTypeWaiters, genericMsg.Type)
-		}
-		c.waitMu.Unlock()
-
-		if mw != nil {
-			resultPtr = mw.msg
-
-		} else {
-			t := reflect.TypeOf(protoType)
-			val := reflect.New(t)
-			resultPtr = val.Interface()
-		}
-
-		err = json.Unmarshal(msg, resultPtr)
-		if err != nil {
-			c.closeWithError(fmt.Errorf("JSON unmarshal: %s", err))
-			break
-		}
-
-		if genericMsg.ID != "" {
-			c.waitMu.Lock()
-			waiter := c.ackWaiters[genericMsg.ID]
-			if waiter != nil {
-				waiter <- resultPtr
-				foundWaiter = true
+			err := json.Unmarshal(msg.raw, m)
+			if err != nil {
+				wrappedErr := fmt.Errorf("JSON unmarshal: %s", err)
+				return wrappedErr
 			}
-			delete(c.ackWaiters, genericMsg.ID)
-			c.waitMu.Unlock()
-		}
 
-		if mw != nil {
-			mw.resultChan <- struct{}{}
+			return nil
 		}
-
-		if foundWaiter {
-			// skip generic recv chan if a specific caller is waiting for a message
-			continue
-		}
-
-		c.recvChan <- resultPtr
 	}
 }
 
-func (c *Client) Send(msg interface{}) error {
-	if atomic.LoadInt32(&c.closed) > 0 {
-		return errors.New("Client closed")
+func msgType(msg interface{}) string {
+	ptr := reflect.TypeOf(msg)
+
+	if ptr.Kind() != reflect.Ptr {
+		panic("msg must be a pointer")
 	}
 
-	_, _, err := c.prepareMsg(msg)
+	structType := ptr.Elem()
+
+	for i := 0; i < structType.NumField(); i++ {
+		field := structType.Field(i)
+		if field.Tag.Get("json") == "type" {
+			return field.Tag.Get("rendezvous_value")
+		}
+	}
+	return ""
+}
+
+// CreateMailbox allocates a nameplate, claims it, and then opens
+// the associated mailbox. It returns the nameplate id string.
+func (c *Client) CreateMailbox(ctx context.Context) (string, error) {
+	nameplateResp, err := c.allocateNameplate(ctx)
 	if err != nil {
+		c.closeWithError(err)
+		return "", err
+	}
+
+	claimed, err := c.claimNameplate(ctx, nameplateResp.Nameplate)
+	if err != nil {
+		c.closeWithError(err)
+		return "", err
+	}
+
+	err = c.openMailbox(ctx, claimed.Mailbox)
+	if err != nil {
+		c.closeWithError(err)
+		return "", err
+	}
+
+	return nameplateResp.Nameplate, nil
+}
+
+// AttachMailbox opens an existing mailbox and releases the associated
+// nameplate.
+func (c *Client) AttachMailbox(ctx context.Context, nameplate string) error {
+	claimed, err := c.claimNameplate(ctx, nameplate)
+	if err != nil {
+		c.closeWithError(err)
 		return err
 	}
 
-	fmt.Printf("send msg: %+v \n", msg)
-
-	return c.wsClient.WriteJSON(msg)
-}
-
-func (c *Client) SendAndWait(ctx context.Context, msg interface{}) (*AckMsg, error) {
-	if atomic.LoadInt32(&c.closed) > 0 {
-		return nil, errors.New("Client closed")
+	err = c.openMailbox(ctx, claimed.Mailbox)
+	if err != nil {
+		c.closeWithError(err)
+		return err
 	}
 
-	id, waitChan, err := c.prepareMsg(msg)
+	err = c.releaseNameplate(ctx, nameplate)
+	if err != nil {
+		c.closeWithError(err)
+		return err
+	}
+
+	return nil
+}
+
+// ListNameplates returns a list of active nameplates on the
+// rendezvous server.
+func (c *Client) ListNameplates(ctx context.Context) ([]string, error) {
+	var (
+		nameplatesResp nameplatesMsg
+		listReq        listMsg
+	)
+
+	_, err := c.sendAndWait(ctx, &listReq)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Printf("send msg: %+v\n", msg)
+	err = c.readMsg(ctx, &nameplatesResp)
+	if err != nil {
+		return nil, err
+	}
+
+	outNameplates := make([]string, len(nameplatesResp.Nameplates))
+	for i, np := range nameplatesResp.Nameplates {
+		outNameplates[i] = np.ID
+	}
+
+	return outNameplates, nil
+}
+
+// AddMessage adds a message to the opened mailbox. This must be called after
+// either CreateMailbox or AttachMailbox.
+func (c *Client) AddMessage(ctx context.Context, phase, body string) error {
+	addReq := addMsg{
+		Phase: phase,
+		Body:  body,
+	}
+
+	_, err := c.sendAndWait(ctx, &addReq)
+	return err
+}
+
+// MsgChan returns a channel of Mailbox message events.
+// Each message from the other side will be published to this channel.
+func (c *Client) MsgChan(ctx context.Context) <-chan MailboxEvent {
+	resultChan := make(chan MailboxEvent)
+	go c.recvMailboxMsgs(ctx, resultChan)
+	return resultChan
+}
+
+func (c *Client) recvMailboxMsgs(ctx context.Context, outCh chan MailboxEvent) {
+	id, notified := c.registerMailboxWaiter()
+	defer c.deregisterMailboxWaiter(id)
+
+	nextOffset := 0
+	var nextMsg *MailboxEvent
+
+OUTER:
+	for {
+
+		// loop over all pending messages we haven't sent
+		// to outCh yet
+		for {
+			c.mu.Lock()
+			if len(c.mailboxMsgs)-1 >= nextOffset {
+				nextMsg = &c.mailboxMsgs[nextOffset]
+			}
+			c.mu.Unlock()
+
+			if nextMsg == nil {
+				break
+			}
+
+			nextOffset++
+
+			if nextMsg.Side != c.sideID {
+				// Only send messages from the other side
+				outCh <- *nextMsg
+			}
+			nextMsg = nil
+		}
+
+		// wait for any new mailbox messages
+		_, ok := <-notified
+		if !ok {
+			break OUTER
+		}
+	}
+
+	close(outCh)
+}
+
+func (c *Client) registerMailboxWaiter() (uint32, <-chan int) {
+	nextID := atomic.AddUint32(&c.pendingMsgWaiterCntr, 1)
+	ch := make(chan int, 1)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.pendingMailboxWaiters[nextID] = ch
+
+	return nextID, ch
+}
+
+func (c *Client) deregisterMailboxWaiter(id uint32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.pendingMailboxWaiters, id)
+}
+
+type Mood string
+
+const (
+	Happy  Mood = "happy"
+	Lonely Mood = "lonely"
+	Scary  Mood = "scary"
+	Errory Mood = "errory"
+)
+
+// Close sends mood to server and then tears down the connection.
+func (c *Client) Close(ctx context.Context, mood Mood) error {
+	if mood == "" {
+		mood = Happy
+	}
+
+	var closedResp closedRespMsg
+
+	closeReq := closeMsg{
+		Mood:    string(mood),
+		Mailbox: c.mailboxID,
+	}
+
+	_, err := c.sendAndWait(ctx, &closeReq)
+	if err != nil {
+		return err
+	}
+
+	err = c.readMsg(ctx, &closedResp)
+	return err
+}
+
+// sendAndWait sends a message to the rendezvous server and waits
+// for an ack response.
+func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*ackMsg, error) {
+	id, err := c.prepareMsg(msg)
+	if err != nil {
+		return nil, err
+	}
+
 	err = c.wsClient.WriteJSON(msg)
 	if err != nil {
 		return nil, err
 	}
 
-	select {
-	case result := <-waitChan:
-		ack, ok := result.(*AckMsg)
-		if !ok {
-			return nil, fmt.Errorf("resp not an ack: %v\n", result)
-		}
-		return ack, nil
-	case <-ctx.Done():
-		c.waitMu.Lock()
-		delete(c.ackWaiters, id)
-		c.waitMu.Unlock()
-		return nil, ctx.Err()
+	var ack ackMsg
+	err = c.readMsg(ctx, &ack)
+	if err != nil {
+		return nil, err
 	}
+
+	if ack.ID != id {
+		return nil, fmt.Errorf("Got ack for different message. Got %s send: %+v", ack.ID, msg)
+	}
+
+	return &ack, nil
 }
 
-func (c *Client) nextWaiterID() uint32 {
-	return atomic.AddUint32(&c.waiterIDCounter, 1)
-}
-
-func (c *Client) waitFor(ctx context.Context, resultMsg interface{}) (*msgWaiter, error) {
-	var msgType string
-
-	ptr := reflect.TypeOf(resultMsg)
-
-	if ptr.Kind() != reflect.Ptr {
-		return nil, errors.New("resultMsg must be a pointer")
-	}
-
-	st := ptr.Elem()
-
-	for i := 0; i < st.NumField(); i++ {
-		field := st.Field(i)
-		if field.Name == "Type" {
-			msgType, _ = field.Tag.Lookup("rendezvous_value")
-		}
-	}
-
-	if msgType == "" {
-		return nil, fmt.Errorf("No Type field or rendezvous_value struct tag on Type field for %T", resultMsg)
-	}
-
-	resultChan := make(chan struct{}, 1)
-
-	waiter := msgWaiter{
-		msg:        resultMsg,
-		msgType:    msgType,
-		resultChan: resultChan,
-		id:         c.nextWaiterID(),
-	}
-
-	c.waitMu.Lock()
-	defer c.waitMu.Unlock()
-	_, existing := c.msgTypeWaiters[msgType]
-	if existing {
-		return nil, fmt.Errorf("Existing waiter already registered for %s", msgType)
-	}
-
-	c.msgTypeWaiters[msgType] = &waiter
-
-	return &waiter, nil
-}
-
-func (c *Client) clearWaiter(waiter *msgWaiter) {
-	c.waitMu.Lock()
-	defer c.waitMu.Unlock()
-
-	gotWaiter := c.msgTypeWaiters[waiter.msgType]
-	if gotWaiter == nil {
-		return
-	}
-
-	if gotWaiter.id == waiter.id {
-		delete(c.msgTypeWaiters, waiter.msgType)
-	}
-}
-
-func (c *Client) prepareMsg(msg interface{}) (id string, waitChan chan interface{}, resultErr error) {
-	var foundFreeID bool
-	waitChan = make(chan interface{}, 1)
-
-	defer func() {
-		// don't leak pending acks if we encounter an error
-		if resultErr != nil && id != "" && foundFreeID {
-			c.waitMu.Lock()
-			delete(c.ackWaiters, id)
-			c.waitMu.Unlock()
-			id = ""
-		}
-	}()
-
-	c.waitMu.Lock()
-	for i := 0; i < 100; i++ {
-		id = randHex(2)
-		if _, occupied := c.ackWaiters[id]; !occupied {
-			c.ackWaiters[id] = waitChan
-			foundFreeID = true
-			break
-		}
-		id = ""
-	}
-	c.waitMu.Unlock()
-
-	if !foundFreeID {
-		return id, nil, errors.New("Failed to find free message id")
-	}
+// prepareMsg populates the ID and Type fields for a message.
+// It returns the ID string or an error.
+func (c *Client) prepareMsg(msg interface{}) (string, error) {
+	id := randHex(2)
 
 	ptr := reflect.TypeOf(msg)
 
 	if ptr.Kind() != reflect.Ptr {
-		return id, nil, errors.New("msg must be a pointer")
+		return "", errors.New("msg must be a pointer")
 	}
 
 	st := ptr.Elem()
@@ -301,7 +468,7 @@ func (c *Client) prepareMsg(msg interface{}) (id string, waitChan chan interface
 		if field.Name == "Type" {
 			msgType, _ := field.Tag.Lookup("rendezvous_value")
 			if msgType == "" {
-				return id, nil, errors.New("Type filed missing rendezvous_value struct tag")
+				return "", errors.New("Type filed missing rendezvous_value struct tag")
 			}
 			ff := val.Field(i)
 			ff.SetString(msgType)
@@ -314,150 +481,166 @@ func (c *Client) prepareMsg(msg interface{}) (id string, waitChan chan interface
 	}
 
 	if !foundID || !foundType {
-		return id, nil, errors.New("msg type missing required field(s): Type and/or ID")
+		return id, errors.New("msg type missing required field(s): Type and/or ID")
 	}
 
-	return id, waitChan, nil
+	return id, nil
 }
 
-func (c *Client) Bind(ctx context.Context, side, appID string) (*AckMsg, error) {
-	bind := BindMsg{
+func (c *Client) bind(ctx context.Context, side, appID string) error {
+	bind := bindMsg{
 		Side:  side,
 		AppID: appID,
 	}
 
-	return c.SendAndWait(ctx, &bind)
+	_, err := c.sendAndWait(ctx, &bind)
+	return err
 }
 
-func (c *Client) AllocateNameplate(ctx context.Context) (*AllocatedRespMsg, error) {
+func (c *Client) allocateNameplate(ctx context.Context) (*allocatedRespMsg, error) {
 	var (
-		allocReq    AllocateMsg
-		allocedResp AllocatedRespMsg
+		allocReq    allocateMsg
+		allocedResp allocatedRespMsg
 	)
 
-	msgWaiter, err := c.waitFor(ctx, &allocedResp)
+	_, err := c.sendAndWait(ctx, &allocReq)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.SendAndWait(ctx, &allocReq)
+	err = c.readMsg(ctx, &allocedResp)
 	if err != nil {
 		return nil, err
 	}
 
-	select {
-	case <-msgWaiter.resultChan:
-		return &allocedResp, nil
-	case <-ctx.Done():
-		c.clearWaiter(msgWaiter)
-		return nil, ctx.Err()
-	}
+	return &allocedResp, nil
 }
 
-func (c *Client) ClaimNameplate(ctx context.Context, nameplate string) (*ClaimedRespMsg, error) {
-	var claimResp ClaimedRespMsg
+func (c *Client) claimNameplate(ctx context.Context, nameplate string) (*claimedRespMsg, error) {
+	var claimResp claimedRespMsg
 
-	claimReq := ClaimMsg{
+	claimReq := claimMsg{
 		Nameplate: nameplate,
 	}
 
-	msgWaiter, err := c.waitFor(ctx, &claimResp)
+	_, err := c.sendAndWait(ctx, &claimReq)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.SendAndWait(ctx, &claimReq)
+	err = c.readMsg(ctx, &claimResp)
 	if err != nil {
 		return nil, err
 	}
 
-	select {
-	case <-msgWaiter.resultChan:
-		return &claimResp, nil
-	case <-ctx.Done():
-		c.clearWaiter(msgWaiter)
-		return nil, ctx.Err()
-	}
+	return &claimResp, nil
 }
 
-func (c *Client) ListNameplates(ctx context.Context) (*NameplatesMsg, error) {
-	var (
-		nameplatesResp NameplatesMsg
-		listMsg        ListMsg
-	)
+func (c *Client) releaseNameplate(ctx context.Context, nameplate string) error {
+	var releasedResp releasedRespMsg
 
-	msgWaiter, err := c.waitFor(ctx, &nameplatesResp)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = c.SendAndWait(ctx, &listMsg)
-	if err != nil {
-		return nil, err
-	}
-
-	select {
-	case <-msgWaiter.resultChan:
-		return &nameplatesResp, nil
-	case <-ctx.Done():
-		c.clearWaiter(msgWaiter)
-		return nil, ctx.Err()
-	}
-}
-
-func (c *Client) ReleaseNameplate(ctx context.Context, nameplate string) (*ReleasedRespMsg, error) {
-	var releasedResp ReleasedRespMsg
-
-	releaseReq := ReleaseMsg{
+	releaseReq := releaseMsg{
 		Nameplate: nameplate,
 	}
 
-	msgWaiter, err := c.waitFor(ctx, &releasedResp)
+	_, err := c.sendAndWait(ctx, &releaseReq)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	_, err = c.SendAndWait(ctx, &releaseReq)
+	err = c.readMsg(ctx, &releasedResp)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	select {
-	case <-msgWaiter.resultChan:
-		return &releasedResp, nil
-	case <-ctx.Done():
-		c.clearWaiter(msgWaiter)
-		return nil, ctx.Err()
-	}
+	return nil
 }
 
-func (c *Client) OpenMailbox(ctx context.Context, mailbox string) error {
-	openMsg := OpenMsg{
+func (c *Client) openMailbox(ctx context.Context, mailbox string) error {
+	c.mu.Lock()
+	c.mailboxID = mailbox
+	c.mu.Unlock()
+
+	open := openMsg{
 		Mailbox: mailbox,
 	}
 
-	_, err := c.SendAndWait(ctx, &openMsg)
+	_, err := c.sendAndWait(ctx, &open)
 	return err
-}
-
-func (c *Client) Add(ctx context.Context, phase, body string) error {
-	addReq := AddMsg{
-		Phase: phase,
-		Body:  body,
-	}
-
-	_, err := c.SendAndWait(ctx, &addReq)
-	return err
-}
-
-func (c *Client) RecvChan() <-chan interface{} {
-	return c.recvChan
-}
-
-func (c *Client) ErrorChan() <-chan error {
-	return c.errorChan
 }
 
 type prepareable interface {
 	prepare() (interface{}, string)
+}
+
+// readMessages reads off the websocket and dispatches messages
+// to either pendingMsg or pendingMailboxMsg.
+func (c *Client) readMessages(ctx context.Context) {
+	for {
+		if err := ctx.Err(); err != nil {
+			c.closeWithError(err)
+			break
+		}
+
+		_, msg, err := c.wsClient.ReadMessage()
+		if err != nil {
+			wrappedErr := fmt.Errorf("WS Read: %s", err)
+			c.closeWithError(wrappedErr)
+			break
+		}
+
+		var genericMsg genericServerMsg
+		err = json.Unmarshal(msg, &genericMsg)
+		if err != nil {
+			wrappedErr := fmt.Errorf("JSON unmarshal: %s", err)
+			c.closeWithError(wrappedErr)
+			break
+		}
+
+		if genericMsg.Type == "message" {
+			var mm messageMsg
+			err := json.Unmarshal(msg, &mm)
+			if err != nil {
+				wrappedErr := fmt.Errorf("JSON unmarshal: %s", err)
+				c.closeWithError(wrappedErr)
+				break
+			}
+
+			mboxMsg := MailboxEvent{
+				Side:  mm.Side,
+				Phase: mm.Phase,
+				Body:  mm.Body,
+			}
+
+			c.mu.Lock()
+			c.mailboxMsgs = append(c.mailboxMsgs, mboxMsg)
+			maxOffset := len(c.mailboxMsgs) - 1
+
+			for _, waiter := range c.pendingMailboxWaiters {
+				select {
+				case waiter <- maxOffset:
+				default:
+				}
+			}
+			c.mu.Unlock()
+		} else {
+			nextID := atomic.AddUint32(&c.pendingMsgIDCntr, 1)
+
+			c.mu.Lock()
+			c.pendingMsgs = append(c.pendingMsgs, pendingMsg{
+				id:      nextID,
+				msgType: genericMsg.Type,
+				raw:     msg,
+			})
+
+			for _, waiter := range c.pendingMsgWaiters {
+				select {
+				case waiter <- nextID:
+				default:
+				}
+			}
+			c.mu.Unlock()
+		}
+
+	}
 }

@@ -7,15 +7,20 @@ import (
 )
 
 // Server sent wecome message
-type WelcomeMsg struct {
-	Type     string                 `json:"type" rendezvous_value:"welcome"`
-	Welcome  map[string]interface{} `json:"welcome"`
-	ServerTX float64                `json:"server_tx"`
-	Error    string                 `json:"error"`
+type welcomeMsg struct {
+	Type     string            `json:"type" rendezvous_value:"welcome"`
+	Welcome  welcomeServerInfo `json:"welcome"`
+	ServerTX float64           `json:"server_tx"`
+}
+
+type welcomeServerInfo struct {
+	MOTD              string `json:"motd"`
+	CurrentCLIVersion string `json:"current_cli_version"`
+	Error             string `json:"error"`
 }
 
 // Client sent bind message
-type BindMsg struct {
+type bindMsg struct {
 	Type  string `json:"type" rendezvous_value:"bind"`
 	ID    string `json:"id"`
 	Side  string `json:"side"`
@@ -23,48 +28,48 @@ type BindMsg struct {
 }
 
 // Client sent aollocate message
-type AllocateMsg struct {
+type allocateMsg struct {
 	Type string `json:"type" rendezvous_value:"allocate"`
 	ID   string `json:"id"`
 }
 
 // Server sent ack message
-type AckMsg struct {
+type ackMsg struct {
 	Type     string  `json:"type" rendezvous_value:"ack"`
 	ID       string  `json:"id"`
 	ServerTX float64 `json:"server_tx"`
 }
 
 // Server sent allocated message
-type AllocatedRespMsg struct {
+type allocatedRespMsg struct {
 	Type      string  `json:"type" rendezvous_value:"allocated"`
 	Nameplate string  `json:"nameplate"`
 	ServerTX  float64 `json:"server_tx"`
 }
 
 // Client sent claim message
-type ClaimMsg struct {
+type claimMsg struct {
 	Type      string `json:"type" rendezvous_value:"claim"`
 	ID        string `json:"id"`
 	Nameplate string `json:"nameplate"`
 }
 
 // Server sent claimed message
-type ClaimedRespMsg struct {
+type claimedRespMsg struct {
 	Type     string  `json:"type" rendezvous_value:"claimed"`
 	Mailbox  string  `json:"mailbox"`
 	ServerTX float64 `json:"server_tx"`
 }
 
 // Client sent open message
-type OpenMsg struct {
+type openMsg struct {
 	Type    string `json:"type" rendezvous_value:"open"`
 	ID      string `json:"id"`
 	Mailbox string `json:"mailbox"`
 }
 
 // Client sent add message to add a message to a mailbox.
-type AddMsg struct {
+type addMsg struct {
 	Type  string `json:"type" rendezvous_value:"add"`
 	ID    string `json:"id"`
 	Phase string `json:"phase"`
@@ -73,7 +78,7 @@ type AddMsg struct {
 }
 
 // Server sent message message
-type MessageMsg struct {
+type messageMsg struct {
 	Type  string `json:"type" rendezvous_value:"message"`
 	ID    string `json:"id"`
 	Side  string `json:"side"`
@@ -85,7 +90,7 @@ type MessageMsg struct {
 }
 
 // Client sent list message to list nameplates.
-type ListMsg struct {
+type listMsg struct {
 	Type string `json:"type" rendezvous_value:"list"`
 	ID   string `json:"id"`
 }
@@ -93,7 +98,7 @@ type ListMsg struct {
 // Server sent nameplates message.
 // The server sends this in response to ListMsg.
 // It contains the list of active nameplates.
-type NameplatesMsg struct {
+type nameplatesMsg struct {
 	Type       string `json:"type" rendezvous_value:"nameplates"`
 	Nameplates []struct {
 		ID string `json:"id"`
@@ -102,24 +107,36 @@ type NameplatesMsg struct {
 }
 
 // Client sent release message to release a nameplate.
-type ReleaseMsg struct {
+type releaseMsg struct {
 	Type      string `json:"type" rendezvous_value:"release"`
 	ID        string `json:"id"`
 	Nameplate string `json:"nameplate"`
 }
 
 // Server sent response to release request.
-type ReleasedRespMsg struct {
+type releasedRespMsg struct {
 	Type     string  `json:"type" rendezvous_value:"released"`
 	ServerTX float64 `json:"server_tx"`
 }
 
 // Server sent error message
-type ErrorMsg struct {
+type errorMsg struct {
 	Type     string      `json:"type" rendezvous_value:"error"`
 	Error    string      `json:"error"`
 	Orig     interface{} `json:"orig"`
 	ServerTx float64     `json:"server_tx"`
+}
+
+type closeMsg struct {
+	Type    string `json:"type" rendezvous_value:"close"`
+	ID      string `json:"id"`
+	Mailbox string `json:"mailbox"`
+	Mood    string `json:"mood"`
+}
+
+type closedRespMsg struct {
+	Type     string  `json:"type" rendezvous_value:"closed"`
+	ServerTx float64 `json:"server_tx"`
 }
 
 type genericServerMsg struct {
@@ -130,21 +147,23 @@ type genericServerMsg struct {
 }
 
 var msgMap = map[string]interface{}{
-	"welcome":    WelcomeMsg{},
-	"bind":       BindMsg{},
-	"allocate":   AllocateMsg{},
-	"ack":        AckMsg{},
-	"allocated":  AllocatedRespMsg{},
-	"claim":      ClaimMsg{},
-	"claimed":    ClaimedRespMsg{},
-	"open":       OpenMsg{},
-	"add":        AddMsg{},
-	"message":    MessageMsg{},
-	"list":       ListMsg{},
-	"nameplates": NameplatesMsg{},
-	"release":    ReleaseMsg{},
-	"released":   ReleasedRespMsg{},
-	"error":      ErrorMsg{},
+	"welcome":    welcomeMsg{},
+	"bind":       bindMsg{},
+	"allocate":   allocateMsg{},
+	"ack":        ackMsg{},
+	"allocated":  allocatedRespMsg{},
+	"claim":      claimMsg{},
+	"claimed":    claimedRespMsg{},
+	"open":       openMsg{},
+	"add":        addMsg{},
+	"message":    messageMsg{},
+	"list":       listMsg{},
+	"nameplates": nameplatesMsg{},
+	"release":    releaseMsg{},
+	"released":   releasedRespMsg{},
+	"error":      errorMsg{},
+	"close":      closeMsg{},
+	"closed":     closedRespMsg{},
 }
 
 func randHex(n int) string {
