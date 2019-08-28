@@ -159,8 +159,11 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 
+	var sendMu sync.Mutex
 	sendMsg := func(msg interface{}) {
 		prepareServerMsg(msg)
+		sendMu.Lock()
+		defer sendMu.Unlock()
 		err = c.WriteJSON(msg)
 		if err != nil {
 			panic(err)
@@ -203,7 +206,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		_, msgBytes, err := c.ReadMessage()
-		if err == io.EOF {
+		if _, isCloseErr := err.(*websocket.CloseError); err == io.EOF || isCloseErr {
 			break
 		} else if err != nil {
 			panic(err)

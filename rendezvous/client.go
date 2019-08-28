@@ -404,6 +404,14 @@ func (c *Client) Close(ctx context.Context, mood Mood) error {
 		mood = Happy
 	}
 
+	defer func() {
+		if c.wsClient != nil {
+			c.wsClient.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			c.wsClient.Close()
+			c.wsClient = nil
+		}
+	}()
+
 	var closedResp msgs.ClosedResp
 
 	closeReq := msgs.Close{

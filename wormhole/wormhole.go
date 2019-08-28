@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -90,10 +91,23 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 
 	ch := make(chan SendResult, 1)
 	go func() {
+		var returnErr error
+		defer func() {
+			mood := rendezvous.Errory
+			if returnErr == nil {
+				mood = rendezvous.Happy
+			} else if returnErr == errDecryptFailed {
+				mood = rendezvous.Scary
+			}
+
+			rc.Close(ctx, mood)
+		}()
+
 		sendErr := func(err error) {
 			ch <- SendResult{
 				Error: err,
 			}
+			returnErr = err
 			close(ch)
 			return
 		}
@@ -225,10 +239,21 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 	return pwStr, ch, nil
 }
 
-func (c *Client) RecvText(ctx context.Context, code string) (string, error) {
+func (c *Client) RecvText(ctx context.Context, code string) (message string, returnErr error) {
 	sideID := random.SideID()
 	appID := c.appID()
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
+
+	defer func() {
+		mood := rendezvous.Errory
+		if returnErr == nil {
+			mood = rendezvous.Happy
+		} else if returnErr == errDecryptFailed {
+			mood = rendezvous.Scary
+		}
+
+		rc.Close(ctx, mood)
+	}()
 
 	_, err := rc.Connect(ctx)
 	if err != nil {
@@ -345,6 +370,8 @@ func (c *Client) RecvText(ctx context.Context, code string) (string, error) {
 	return offer.Offer.Message, nil
 }
 
+var errDecryptFailed = errors.New("Decrypt message failed")
+
 func openAndUnmarshal(v interface{}, mb rendezvous.MailboxEvent, sharedKey []byte) error {
 	keySlice := derivePhaseKey(string(sharedKey), mb.Side, mb.Phase)
 	nonceAndSealedMsg, err := hex.DecodeString(mb.Body)
@@ -359,7 +386,7 @@ func openAndUnmarshal(v interface{}, mb rendezvous.MailboxEvent, sharedKey []byt
 
 	out, ok := secretbox.Open(nil, sealedMsg, &nonce, &openKey)
 	if !ok {
-		return fmt.Errorf("Decrypt message failed")
+		return errDecryptFailed
 	}
 
 	return json.Unmarshal(out, v)
