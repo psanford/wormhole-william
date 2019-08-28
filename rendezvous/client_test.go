@@ -2,7 +2,6 @@ package rendezvous
 
 import (
 	"context"
-	"net/url"
 	"reflect"
 	"testing"
 
@@ -14,19 +13,11 @@ func TestBasicClient(t *testing.T) {
 	ts := rendezvousservertest.NewServer()
 	defer ts.Close()
 
-	u, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	u.Scheme = "ws"
-	u.Path = "/ws"
-
 	side0 := random.SideID()
 	side1 := random.SideID()
 	appID := "superlatively-abbeys"
 
-	c0 := NewClient(u.String(), side0, appID)
+	c0 := NewClient(ts.WebSocketURL(), side0, appID)
 
 	ctx := context.Background()
 
@@ -44,7 +35,7 @@ func TestBasicClient(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c1 := NewClient(u.String(), side1, appID)
+	c1 := NewClient(ts.WebSocketURL(), side1, appID)
 	_, err = c1.Connect(ctx)
 	if err != nil {
 		t.Fatal(err)
