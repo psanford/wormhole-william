@@ -1,4 +1,4 @@
-package rendezvous
+package msgs
 
 import (
 	"reflect"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestStructTags(t *testing.T) {
-	for n, iface := range msgMap {
+	for n, iface := range MsgMap {
 		st := reflect.TypeOf(iface)
 		for i := 0; i < st.NumField(); i++ {
 			field := st.Field(i)
@@ -17,6 +17,5 @@ func TestStructTags(t *testing.T) {
 				}
 			}
 		}
-
 	}
 }

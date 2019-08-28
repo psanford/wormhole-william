@@ -1,3 +1,4 @@
+//
 package rendezvous
 
 import (
@@ -19,6 +20,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/psanford/wormhole-william/random"
+	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
 )
 
 func TestBasicClient(t *testing.T) {
@@ -155,7 +157,7 @@ func newMailbox() *mailbox {
 	}
 }
 
-func (m *mailbox) Add(side string, addMsg *addMsg) {
+func (m *mailbox) Add(side string, addMsg *msgs.Add) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -214,22 +216,22 @@ func prepareServerMsg(msg interface{}) {
 	}
 }
 
-func serverUnmarshal(msg []byte) (interface{}, error) {
-	var genericMsg genericServerMsg
-	err := json.Unmarshal(msg, &genericMsg)
+func serverUnmarshal(m []byte) (interface{}, error) {
+	var genericMsg msgs.GenericServerMsg
+	err := json.Unmarshal(m, &genericMsg)
 	if err != nil {
 		return nil, err
 	}
 
-	protoType, found := msgMap[genericMsg.Type]
+	protoType, found := msgs.MsgMap[genericMsg.Type]
 	if !found {
-		return nil, fmt.Errorf("Unknown msg type: %s %v %s\n", genericMsg.Type, genericMsg, msg)
+		return nil, fmt.Errorf("Unknown msg type: %s %v %s\n", genericMsg.Type, genericMsg, m)
 	}
 	t := reflect.TypeOf(protoType)
 	val := reflect.New(t)
 	resultPtr := val.Interface()
 
-	err = json.Unmarshal(msg, resultPtr)
+	err = json.Unmarshal(m, resultPtr)
 	if err != nil {
 		return nil, err
 	}
@@ -254,22 +256,22 @@ func (ts *testServer) handleWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	welcome := &welcomeMsg{
-		Welcome: welcomeServerInfo{
+	welcome := &msgs.Welcome{
+		Welcome: msgs.WelcomeServerInfo{
 			MOTD: "ordure-posts",
 		},
 	}
 	sendMsg(welcome)
 
 	ackMsg := func(id string) {
-		ack := &ackMsg{
+		ack := &msgs.Ack{
 			ID: id,
 		}
 		sendMsg(ack)
 	}
 
 	errMsg := func(id string, orig interface{}, reason error) {
-		errPacket := &errorMsg{
+		errPacket := &msgs.Error{
 			Error: reason.Error(),
 			Orig:  orig,
 		}
@@ -302,7 +304,7 @@ func (ts *testServer) handleWS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch m := msg.(type) {
-		case *bindMsg:
+		case *msgs.Bind:
 			ackMsg(m.ID)
 
 			if sideID != "" {
@@ -316,7 +318,7 @@ func (ts *testServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			}
 
 			sideID = m.Side
-		case *allocateMsg:
+		case *msgs.Allocate:
 			ackMsg(m.ID)
 
 			var nameplate int16
@@ -341,11 +343,11 @@ func (ts *testServer) handleWS(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			resp := &allocatedRespMsg{
+			resp := &msgs.AllocatedResp{
 				Nameplate: fmt.Sprintf("%d", nameplate),
 			}
 			sendMsg(resp)
-		case *claimMsg:
+		case *msgs.Claim:
 			ackMsg(m.ID)
 
 			nameplate, err := strconv.Atoi(m.Nameplate)
@@ -383,11 +385,11 @@ func (ts *testServer) handleWS(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			resp := &claimedRespMsg{
+			resp := &msgs.ClaimedResp{
 				Mailbox: mboxID,
 			}
 			sendMsg(resp)
-		case *openMsg:
+		case *msgs.Open:
 			ackMsg(m.ID)
 
 			if openMailbox != nil {
@@ -413,7 +415,7 @@ func (ts *testServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			mbox.Unlock()
 
 			for _, mboxMsg := range pendingMsgs {
-				msg := &messageMsg{
+				msg := &msgs.Message{
 					Side:  mboxMsg.side,
 					Phase: mboxMsg.phase,
 					Body:  mboxMsg.body,
@@ -423,7 +425,7 @@ func (ts *testServer) handleWS(w http.ResponseWriter, r *http.Request) {
 
 			go func() {
 				for mboxMsg := range msgChan {
-					msg := &messageMsg{
+					msg := &msgs.Message{
 						Side:  mboxMsg.side,
 						Phase: mboxMsg.phase,
 						Body:  mboxMsg.body,
@@ -433,7 +435,7 @@ func (ts *testServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			}()
 
 			openMailbox = mbox
-		case *releaseMsg:
+		case *msgs.Release:
 			ackMsg(m.ID)
 
 			nameplate, err := strconv.Atoi(m.Nameplate)
@@ -446,16 +448,16 @@ func (ts *testServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			delete(ts.nameplates, int16(nameplate))
 			ts.mu.Unlock()
 
-			sendMsg(&releasedRespMsg{})
-		case *addMsg:
+			sendMsg(&msgs.ReleasedResp{})
+		case *msgs.Add:
 			ackMsg(m.ID)
 
 			openMailbox.Add(sideID, m)
 
-		case *closeMsg:
+		case *msgs.Close:
 			ackMsg(m.ID)
 
-			sendMsg(&closedRespMsg{})
+			sendMsg(&msgs.ClosedResp{})
 
 		default:
 			log.Printf("Test server got unexpected message: %v", msg)

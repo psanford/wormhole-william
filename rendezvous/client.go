@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 
 	"github.com/gorilla/websocket"
+	"github.com/psanford/wormhole-william/random"
+	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
 )
 
 // NewClient returns a Rendezvous client. URL is the websocket
@@ -127,7 +129,7 @@ func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
 
 	go c.readMessages(ctx)
 
-	var welcome welcomeMsg
+	var welcome msgs.Welcome
 	err = c.readMsg(ctx, &welcome)
 	if err != nil {
 		c.closeWithError(err)
@@ -286,8 +288,8 @@ func (c *Client) AttachMailbox(ctx context.Context, nameplate string) error {
 // rendezvous server.
 func (c *Client) ListNameplates(ctx context.Context) ([]string, error) {
 	var (
-		nameplatesResp nameplatesMsg
-		listReq        listMsg
+		nameplatesResp msgs.Nameplates
+		listReq        msgs.List
 	)
 
 	_, err := c.sendAndWait(ctx, &listReq)
@@ -311,7 +313,7 @@ func (c *Client) ListNameplates(ctx context.Context) ([]string, error) {
 // AddMessage adds a message to the opened mailbox. This must be called after
 // either CreateMailbox or AttachMailbox.
 func (c *Client) AddMessage(ctx context.Context, phase, body string) error {
-	addReq := addMsg{
+	addReq := msgs.Add{
 		Phase: phase,
 		Body:  body,
 	}
@@ -402,9 +404,9 @@ func (c *Client) Close(ctx context.Context, mood Mood) error {
 		mood = Happy
 	}
 
-	var closedResp closedRespMsg
+	var closedResp msgs.ClosedResp
 
-	closeReq := closeMsg{
+	closeReq := msgs.Close{
 		Mood:    string(mood),
 		Mailbox: c.mailboxID,
 	}
@@ -420,7 +422,7 @@ func (c *Client) Close(ctx context.Context, mood Mood) error {
 
 // sendAndWait sends a message to the rendezvous server and waits
 // for an ack response.
-func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*ackMsg, error) {
+func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*msgs.Ack, error) {
 	id, err := c.prepareMsg(msg)
 	if err != nil {
 		return nil, err
@@ -431,7 +433,7 @@ func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*ackMsg, err
 		return nil, err
 	}
 
-	var ack ackMsg
+	var ack msgs.Ack
 	err = c.readMsg(ctx, &ack)
 	if err != nil {
 		return nil, err
@@ -447,7 +449,7 @@ func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*ackMsg, err
 // prepareMsg populates the ID and Type fields for a message.
 // It returns the ID string or an error.
 func (c *Client) prepareMsg(msg interface{}) (string, error) {
-	id := randHex(2)
+	id := random.Hex(2)
 
 	ptr := reflect.TypeOf(msg)
 
@@ -488,7 +490,7 @@ func (c *Client) prepareMsg(msg interface{}) (string, error) {
 }
 
 func (c *Client) bind(ctx context.Context, side, appID string) error {
-	bind := bindMsg{
+	bind := msgs.Bind{
 		Side:  side,
 		AppID: appID,
 	}
@@ -497,10 +499,10 @@ func (c *Client) bind(ctx context.Context, side, appID string) error {
 	return err
 }
 
-func (c *Client) allocateNameplate(ctx context.Context) (*allocatedRespMsg, error) {
+func (c *Client) allocateNameplate(ctx context.Context) (*msgs.AllocatedResp, error) {
 	var (
-		allocReq    allocateMsg
-		allocedResp allocatedRespMsg
+		allocReq    msgs.Allocate
+		allocedResp msgs.AllocatedResp
 	)
 
 	_, err := c.sendAndWait(ctx, &allocReq)
@@ -516,10 +518,10 @@ func (c *Client) allocateNameplate(ctx context.Context) (*allocatedRespMsg, erro
 	return &allocedResp, nil
 }
 
-func (c *Client) claimNameplate(ctx context.Context, nameplate string) (*claimedRespMsg, error) {
-	var claimResp claimedRespMsg
+func (c *Client) claimNameplate(ctx context.Context, nameplate string) (*msgs.ClaimedResp, error) {
+	var claimResp msgs.ClaimedResp
 
-	claimReq := claimMsg{
+	claimReq := msgs.Claim{
 		Nameplate: nameplate,
 	}
 
@@ -537,9 +539,9 @@ func (c *Client) claimNameplate(ctx context.Context, nameplate string) (*claimed
 }
 
 func (c *Client) releaseNameplate(ctx context.Context, nameplate string) error {
-	var releasedResp releasedRespMsg
+	var releasedResp msgs.ReleasedResp
 
-	releaseReq := releaseMsg{
+	releaseReq := msgs.Release{
 		Nameplate: nameplate,
 	}
 
@@ -561,7 +563,7 @@ func (c *Client) openMailbox(ctx context.Context, mailbox string) error {
 	c.mailboxID = mailbox
 	c.mu.Unlock()
 
-	open := openMsg{
+	open := msgs.Open{
 		Mailbox: mailbox,
 	}
 
@@ -589,7 +591,7 @@ func (c *Client) readMessages(ctx context.Context) {
 			break
 		}
 
-		var genericMsg genericServerMsg
+		var genericMsg msgs.GenericServerMsg
 		err = json.Unmarshal(msg, &genericMsg)
 		if err != nil {
 			wrappedErr := fmt.Errorf("JSON unmarshal: %s", err)
@@ -598,7 +600,7 @@ func (c *Client) readMessages(ctx context.Context) {
 		}
 
 		if genericMsg.Type == "message" {
-			var mm messageMsg
+			var mm msgs.Message
 			err := json.Unmarshal(msg, &mm)
 			if err != nil {
 				wrappedErr := fmt.Errorf("JSON unmarshal: %s", err)
