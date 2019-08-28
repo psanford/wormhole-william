@@ -140,20 +140,36 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 			return
 		}
 
+		phase = "version"
+		verInfo := versionsMsg{
+			AppVersions: make(map[string]interface{}),
+		}
+
+		jsonOut, err := json.Marshal(verInfo)
+		if err != nil {
+			sendErr(err)
+			return
+		}
+
+		err = sendEncryptedMessage(ctx, rc, jsonOut, sharedKey, sideID, phase)
+		if err != nil {
+			sendErr(err)
+			return
+		}
+
 		gotMsg = <-recvChan
 		if gotMsg.Error != nil {
 			sendErr(gotMsg.Error)
 			return
 		}
 
-		phase = "version"
 		if gotMsg.Phase != phase {
 			sendErr(fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase))
 			return
 		}
 
-		var verInfo versionsMsg
-		err = openAndUnmarshal(gotMsg.Body, &verInfo, sharedKey, gotMsg.Side, gotMsg.Phase)
+		var gotVersion versionsMsg
+		err = openAndUnmarshal(&gotVersion, gotMsg, sharedKey)
 		if err != nil {
 			sendErr(err)
 			return
@@ -182,14 +198,13 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 			sendErr(gotMsg.Error)
 			return
 		}
-		phase = "0"
 		if gotMsg.Phase != phase {
 			sendErr(fmt.Errorf("Got unexpected phase while waiting for phase \"%s\": %s", phase, gotMsg.Phase))
 			return
 		}
 
 		var answer answerMsgOuter
-		err = openAndUnmarshal(gotMsg.Body, &answer, sharedKey, gotMsg.Side, gotMsg.Phase)
+		err = openAndUnmarshal(&answer, gotMsg, sharedKey)
 		if err != nil {
 			sendErr(err)
 			return
@@ -267,7 +282,6 @@ func (c *Client) RecvText(ctx context.Context, code string) (string, error) {
 	}
 
 	phase = "version"
-
 	verInfo := versionsMsg{
 		AppVersions: make(map[string]interface{}),
 	}
@@ -287,13 +301,27 @@ func (c *Client) RecvText(ctx context.Context, code string) (string, error) {
 		return "", gotMsg.Error
 	}
 
+	if gotMsg.Phase != phase {
+		return "", fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
+	}
+
+	var gotVersion versionsMsg
+	err = openAndUnmarshal(&gotVersion, gotMsg, sharedKey)
+	if err != nil {
+		return "", err
+	}
+
 	phase = "0"
+	gotMsg = <-recvChan
+	if gotMsg.Error != nil {
+		return "", gotMsg.Error
+	}
 	if gotMsg.Phase != phase {
 		return "", fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
 	}
 
 	var offer offerMsgOuter
-	err = openAndUnmarshal(gotMsg.Body, &offer, sharedKey, gotMsg.Side, gotMsg.Phase)
+	err = openAndUnmarshal(&offer, gotMsg, sharedKey)
 	if err != nil {
 		return "", err
 	}
@@ -317,14 +345,14 @@ func (c *Client) RecvText(ctx context.Context, code string) (string, error) {
 	return offer.Offer.Message, nil
 }
 
-func openAndUnmarshal(hexMsg string, v interface{}, sharedKey []byte, sideID, phase string) error {
-	keySlice := derivePhaseKey(string(sharedKey), sideID, phase)
-	sealedMsg, err := hex.DecodeString(hexMsg)
+func openAndUnmarshal(v interface{}, mb rendezvous.MailboxEvent, sharedKey []byte) error {
+	keySlice := derivePhaseKey(string(sharedKey), mb.Side, mb.Phase)
+	nonceAndSealedMsg, err := hex.DecodeString(mb.Body)
 	if err != nil {
 		return err
 	}
 
-	nonce, sealedMsg := splitNonce(sealedMsg)
+	nonce, sealedMsg := splitNonce(nonceAndSealedMsg)
 
 	var openKey [32]byte
 	copy(openKey[:], keySlice)
