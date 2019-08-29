@@ -50,6 +50,8 @@ type Client struct {
 	sideID    string
 	mailboxID string
 
+	nameplate string
+
 	wsClient *websocket.Conn
 
 	mailboxMsgs           []MailboxEvent
@@ -250,6 +252,7 @@ func (c *Client) CreateMailbox(ctx context.Context) (string, error) {
 		c.closeWithError(err)
 		return "", err
 	}
+	c.nameplate = nameplateResp.Nameplate
 
 	err = c.openMailbox(ctx, claimed.Mailbox)
 	if err != nil {
@@ -268,14 +271,9 @@ func (c *Client) AttachMailbox(ctx context.Context, nameplate string) error {
 		c.closeWithError(err)
 		return err
 	}
+	c.nameplate = nameplate
 
 	err = c.openMailbox(ctx, claimed.Mailbox)
-	if err != nil {
-		c.closeWithError(err)
-		return err
-	}
-
-	err = c.releaseNameplate(ctx, nameplate)
 	if err != nil {
 		c.closeWithError(err)
 		return err
@@ -358,6 +356,13 @@ OUTER:
 			if nextMsg.Side != c.sideID {
 				// Only send messages from the other side
 				outCh <- *nextMsg
+
+				if c.nameplate != "" {
+					// release the nameplate when we get a response from the other side
+					c.releaseNameplate(ctx, c.nameplate)
+					c.nameplate = ""
+				}
+
 			}
 			nextMsg = nil
 		}
@@ -406,7 +411,6 @@ func (c *Client) Close(ctx context.Context, mood Mood) error {
 
 	defer func() {
 		if c.wsClient != nil {
-			c.wsClient.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			c.wsClient.Close()
 			c.wsClient = nil
 		}
