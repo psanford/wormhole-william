@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strconv"
 
 	"github.com/psanford/wormhole-william/random"
@@ -29,6 +30,11 @@ type Client struct {
 	// DefaultRendezvousURL will be used.
 	RendezvousURL string
 
+	// TransitRelayAddress is the host:port address to offer
+	// to use for file transfers where direct connections are unavailable.
+	// If empty, DefaultTransitRelayAddress will be used.
+	TransitRelayAddress string
+
 	// PassPhraseComponentLength is the number of words to use
 	// when generating a passprase. Any value less than 2 will
 	// default to 2.
@@ -37,6 +43,7 @@ type Client struct {
 
 var WormholeCLIAppID = "lothar.com/wormhole/text-or-file-xfer"
 var DefaultRendezvousURL = "ws://localhost:4000/v1"
+var DefaultTransitRelayAddress = "transit.magic-wormhole.io:4001"
 
 // var DefaultRendezvousURL = "ws://relay.magic-wormhole.io:4000/v1"
 
@@ -64,6 +71,18 @@ func (c *Client) wordCount() int {
 	} else {
 		return 2
 	}
+}
+
+func (c *Client) relayAddr() string {
+	if c.TransitRelayAddress != "" {
+		return c.TransitRelayAddress
+	}
+	return DefaultTransitRelayAddress
+}
+
+func (c *Client) validateRelayAddr() error {
+	_, _, err := net.SplitHostPort(c.relayAddr())
+	return err
 }
 
 type SendResult struct {
@@ -160,9 +179,9 @@ type pakeMsg struct {
 }
 
 type offerMsg struct {
-	Message   *string         `json:"message"`
-	Directory *offerDirectory `json:"directory"`
-	File      *offerFile      `json:"file"`
+	Message   *string         `json:"message,omitempty"`
+	Directory *offerDirectory `json:"directory,omitempty"`
+	File      *offerFile      `json:"file,omitempty"`
 }
 
 type offerDirectory struct {
@@ -288,7 +307,7 @@ func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) error {
 
 			c.answer = msg.Answer
 		} else {
-			return errors.New("Got unexpected message")
+			return fmt.Errorf("Got unexpected message")
 		}
 
 		pending--
@@ -377,7 +396,7 @@ func (cc *clientProtocol) ReadVersion() (*appVersionsMsg, error) {
 	return &v, nil
 }
 
-func (cc *clientProtocol) WriteAppData(ctx context.Context, v interface{}) error {
+func (cc *clientProtocol) WriteAppData(ctx context.Context, v *genericMessage) error {
 	nextPhase := cc.phaseCounter
 	cc.phaseCounter++
 

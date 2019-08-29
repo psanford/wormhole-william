@@ -13,7 +13,6 @@ import (
 
 // SendText returns nameplate+pass-phrase, result chan, error
 func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendResult, error) {
-
 	sideID := random.SideID()
 	appID := c.appID()
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
@@ -79,7 +78,7 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 			return
 		}
 
-		offer := genericMessage{
+		offer := &genericMessage{
 			Offer: &offerMsg{
 				Message: &msg,
 			},
@@ -175,7 +174,7 @@ func (c *Client) RecvText(ctx context.Context, code string) (message string, ret
 		},
 	}
 
-	err = clientProto.WriteAppData(ctx, answer)
+	err = clientProto.WriteAppData(ctx, &answer)
 	if err != nil {
 		return "", err
 	}
