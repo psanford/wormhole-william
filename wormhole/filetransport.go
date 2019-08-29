@@ -16,6 +16,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/psanford/wormhole-william/random"
 	"github.com/psanford/wormhole-william/rendezvous"
@@ -29,7 +30,7 @@ type FileReceiver struct {
 	Bytes     int
 	FileCount int
 
-	decryptor *transportCryptor
+	cryptor   *transportCryptor
 	buf       []byte
 	readCount int
 	sha256    hash.Hash
@@ -48,7 +49,7 @@ func (f *FileReceiver) Read(p []byte) (int, error) {
 	}
 
 	if len(f.buf) == 0 {
-		rec, err := f.decryptor.readRecord()
+		rec, err := f.cryptor.readRecord()
 		if err != nil {
 			f.readErr = err
 			return 0, err
@@ -70,8 +71,8 @@ func (f *FileReceiver) Read(p []byte) (int, error) {
 		}
 
 		msg, _ := json.Marshal(ack)
-		f.decryptor.writeRecord(msg)
-		f.decryptor.Close()
+		f.cryptor.writeRecord(msg)
+		f.cryptor.Close()
 	}
 
 	return n, nil
@@ -148,7 +149,7 @@ func (c *Client) RecvFile(ctx context.Context, code string) (fileReciever *FileR
 	} else if collector.offer.Directory != nil {
 		fr.Type = FileTypeDirectory
 		fr.Name = collector.offer.Directory.Dirname
-		fr.Bytes = int(collector.offer.Directory.NumBytes)
+		fr.Bytes = int(collector.offer.Directory.ZipSize)
 		fr.FileCount = int(collector.offer.Directory.NumFiles)
 	} else {
 		return nil, errors.New("Got non-file transfer offer")
@@ -186,12 +187,21 @@ func (c *Client) RecvFile(ctx context.Context, code string) (fileReciever *FileR
 		return nil, err
 	}
 
-	if conn != nil {
-		decryptor := newTransportDecryptor(conn, transitKey, "transit_record_sender_key", "transit_record_receiver_key")
-
-		fr.decryptor = decryptor
-		fr.sha256 = sha256.New()
+	if conn == nil {
+		conn, err = transport.connectViaRelay(collector.transit)
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	if conn == nil {
+		return nil, errors.New("Failed to establish connection")
+	}
+
+	cryptor := newTransportCryptor(conn, transitKey, "transit_record_sender_key", "transit_record_receiver_key")
+
+	fr.cryptor = cryptor
+	fr.sha256 = sha256.New()
 
 	return &fr, nil
 }
@@ -206,7 +216,7 @@ type transportCryptor struct {
 	writeKey       [32]byte
 }
 
-func newTransportDecryptor(c net.Conn, transitKey []byte, readPurpose, writePurpose string) *transportCryptor {
+func newTransportCryptor(c net.Conn, transitKey []byte, readPurpose, writePurpose string) *transportCryptor {
 	r := hkdf.New(sha256.New, transitKey, nil, []byte(readPurpose))
 	var readKey [32]byte
 	_, err := io.ReadFull(r, readKey[:])
@@ -313,6 +323,48 @@ type fileTransport struct {
 	appID      string
 }
 
+func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, error) {
+	cancelFuncs := make(map[string]func())
+
+	successChan := make(chan net.Conn)
+	failChan := make(chan string)
+
+	var count int
+
+	for _, outerHint := range otherTransit.HintsV1 {
+		if outerHint.Type == "relay-v1" {
+			for _, innerHint := range outerHint.Hints {
+				if innerHint.Type == "direct-tcp-v1" {
+					count++
+					ctx, cancel := context.WithCancel(context.Background())
+					addr := net.JoinHostPort(innerHint.Hostname, strconv.Itoa(innerHint.Port))
+
+					cancelFuncs[addr] = cancel
+
+					go t.connectToRelay(ctx, addr, successChan, failChan)
+				}
+			}
+		}
+	}
+
+	var conn net.Conn
+
+	connectTimeout := time.After(5 * time.Second)
+
+	for i := 0; i < count; i++ {
+		select {
+		case <-failChan:
+		case conn = <-successChan:
+		case <-connectTimeout:
+			for _, cancel := range cancelFuncs {
+				cancel()
+			}
+		}
+	}
+
+	return conn, nil
+}
+
 func (t *fileTransport) connectDirect(otherTransit *transitMsg) (net.Conn, error) {
 	cancelFuncs := make(map[string]func())
 
@@ -329,23 +381,60 @@ func (t *fileTransport) connectDirect(otherTransit *transitMsg) (net.Conn, error
 
 			cancelFuncs[addr] = cancel
 
-			go t.connectSingleHost(ctx, addr, successChan, failChan)
+			go t.connectToSingleHost(ctx, addr, successChan, failChan)
 		}
 	}
 
 	var conn net.Conn
 
+	connectTimeout := time.After(5 * time.Second)
+
 	for i := 0; i < count; i++ {
 		select {
 		case <-failChan:
 		case conn = <-successChan:
+		case <-connectTimeout:
+			for _, cancel := range cancelFuncs {
+				cancel()
+			}
 		}
 	}
 
 	return conn, nil
 }
 
-func (t *fileTransport) connectSingleHost(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
+func (t *fileTransport) connectToRelay(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		failChan <- addr
+		return
+	}
+
+	_, err = conn.Write(t.relayHandshakeHeader())
+	if err != nil {
+		failChan <- addr
+		return
+	}
+
+	gotOk := make([]byte, 3)
+	_, err = io.ReadFull(conn, gotOk)
+	if err != nil {
+		conn.Close()
+		failChan <- addr
+		return
+	}
+
+	if !bytes.Equal(gotOk, []byte("ok\n")) {
+		conn.Close()
+		failChan <- addr
+		return
+	}
+
+	t.directHandshake(ctx, addr, conn, successChan, failChan)
+}
+
+func (t *fileTransport) connectToSingleHost(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", addr)
 
@@ -354,11 +443,15 @@ func (t *fileTransport) connectSingleHost(ctx context.Context, addr string, succ
 		return
 	}
 
+	t.directHandshake(ctx, addr, conn, successChan, failChan)
+}
+
+func (t *fileTransport) directHandshake(ctx context.Context, addr string, conn net.Conn, successChan chan net.Conn, failChan chan string) {
 	expectHeader := t.senderHandshakeHeader()
 
 	gotHeader := make([]byte, len(expectHeader))
 
-	_, err = io.ReadFull(conn, gotHeader)
+	_, err := io.ReadFull(conn, gotHeader)
 	if err != nil {
 		conn.Close()
 		failChan <- addr
@@ -443,6 +536,22 @@ func (t *fileTransport) senderHandshakeHeader() []byte {
 	}
 
 	return []byte(fmt.Sprintf("transit sender %x ready\n\n", out))
+}
+
+func (t *fileTransport) relayHandshakeHeader() []byte {
+	purpose := "transit_relay_token"
+
+	r := hkdf.New(sha256.New, t.transitKey, nil, []byte(purpose))
+	out := make([]byte, 32)
+
+	_, err := io.ReadFull(r, out)
+	if err != nil {
+		panic(err)
+	}
+
+	sideID := random.Hex(8)
+
+	return []byte(fmt.Sprintf("please relay %x for side %s\n", out, sideID))
 }
 
 func (t *fileTransport) receiverHandshakeHeader() []byte {
