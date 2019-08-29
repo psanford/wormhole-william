@@ -6,12 +6,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/psanford/wormhole-william/random"
 	"github.com/psanford/wormhole-william/rendezvous"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/nacl/secretbox"
+	"salsa.debian.org/vasudev/gospake2"
 )
 
 // client or just send() and recv() methods?
@@ -187,6 +190,7 @@ type appVersionsMsg struct {
 
 type answerMsg struct {
 	MessageAck string `json:"message_ack"`
+	FileAck    string `json:"file_ack"`
 }
 
 func splitNonce(sealedMsg []byte) (nonce [24]byte, msg []byte) {
@@ -207,13 +211,246 @@ type transitHintsV1 struct {
 }
 
 type transitHintsV1Hint struct {
-	Hostname string `json:"hostname"`
-	Port     int64  `json:"port"`
-	Priority int64  `json:"priority"`
-	Type     string `json:"type"`
+	Hostname string  `json:"hostname"`
+	Port     int64   `json:"port"`
+	Priority float64 `json:"priority"`
+	Type     string  `json:"type"`
 }
 
 type transitMsg struct {
 	AbilitiesV1 []transitAbility `json:"abilities-v1"`
 	HintsV1     []transitHintsV1 `json:"hints-v1"`
+}
+
+type msgCollector struct {
+	sharedKey      []byte
+	collectOffer   bool
+	collectTransit bool
+	collectAnswer  bool
+
+	offer   *offerMsg
+	answer  *answerMsg
+	transit *transitMsg
+}
+
+func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) error {
+	var pending int
+	for _, collect := range []bool{c.collectOffer, c.collectTransit, c.collectAnswer} {
+		if collect {
+			pending++
+		}
+	}
+
+	for pending > 0 {
+		gotMsg, ok := <-ch
+		if !ok {
+			return errors.New("Channel closed before collecting all messages")
+		}
+		if gotMsg.Error != nil {
+			return gotMsg.Error
+		}
+
+		if _, err := strconv.Atoi(gotMsg.Phase); err != nil {
+			return fmt.Errorf("Got unexpected phase: %s", gotMsg.Phase)
+		}
+
+		var msg genericMessage
+		err := openAndUnmarshal(&msg, gotMsg, c.sharedKey)
+		if err != nil {
+			return err
+		}
+
+		if msg.Offer != nil {
+			if !c.collectOffer {
+				return errors.New("Got offer message when wasn't expecting one")
+			}
+			if c.offer != nil {
+				return errors.New("Got multiple offer messages")
+			}
+
+			c.offer = msg.Offer
+		} else if msg.Transit != nil {
+			if !c.collectTransit {
+				return errors.New("Got transit message when wasn't expecting one")
+			}
+			if c.transit != nil {
+				return errors.New("Got multiple transit messages")
+			}
+
+			c.transit = msg.Transit
+		} else if msg.Answer != nil {
+			if !c.collectAnswer {
+				return errors.New("Got answer message when wasn't expecting one")
+			}
+			if c.answer != nil {
+				return errors.New("Got multiple answer messages")
+			}
+
+			c.answer = msg.Answer
+		} else {
+			return errors.New("Got unexpected message")
+		}
+
+		pending--
+	}
+
+	return nil
+}
+
+type clientProtocol struct {
+	sharedKey    []byte
+	phaseCounter int
+	ch           <-chan rendezvous.MailboxEvent
+	rc           *rendezvous.Client
+	spake        *gospake2.SPAKE2
+	sideID       string
+	appID        string
+}
+
+func newClientProtocol(ctx context.Context, rc *rendezvous.Client, sideID, appID string) *clientProtocol {
+	recvChan := rc.MsgChan(ctx)
+
+	return &clientProtocol{
+		ch:     recvChan,
+		rc:     rc,
+		sideID: sideID,
+		appID:  appID,
+	}
+}
+
+func (cc *clientProtocol) WritePake(ctx context.Context, code string) error {
+	pw := gospake2.NewPassword(code)
+	spake := gospake2.SPAKE2Symmetric(pw, gospake2.NewIdentityS(cc.appID))
+	cc.spake = &spake
+	pakeMsgBody := cc.spake.Start()
+
+	pm := pakeMsg{
+		Body: hex.EncodeToString(pakeMsgBody),
+	}
+
+	return cc.rc.AddMessage(ctx, "pake", jsonHexMarshal(pm))
+}
+
+func (cc *clientProtocol) ReadPake() error {
+	var pake pakeMsg
+	err := cc.readPlaintext("pake", &pake)
+	if err != nil {
+		return err
+	}
+
+	otherSidesMsg, err := hex.DecodeString(pake.Body)
+	if err != nil {
+		return err
+	}
+
+	sharedKey, err := cc.spake.Finish(otherSidesMsg)
+	if err != nil {
+		return err
+	}
+
+	cc.sharedKey = sharedKey
+
+	return nil
+}
+
+func (cc *clientProtocol) WriteVersion(ctx context.Context) error {
+	phase := "version"
+	verInfo := genericMessage{
+		AppVersions: &appVersionsMsg{},
+	}
+
+	jsonOut, err := json.Marshal(verInfo)
+	if err != nil {
+		return err
+	}
+
+	err = sendEncryptedMessage(ctx, cc.rc, jsonOut, cc.sharedKey, cc.sideID, phase)
+	return err
+}
+
+func (cc *clientProtocol) ReadVersion() (*appVersionsMsg, error) {
+	var v appVersionsMsg
+	err := cc.openAndUnmarshal("version", &v)
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (cc *clientProtocol) WriteAppData(ctx context.Context, v interface{}) error {
+	nextPhase := cc.phaseCounter
+	cc.phaseCounter++
+
+	jsonOut, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	phase := strconv.Itoa(nextPhase)
+
+	return sendEncryptedMessage(ctx, cc.rc, jsonOut, cc.sharedKey, cc.sideID, phase)
+}
+
+func (cc *clientProtocol) openAndUnmarshal(phase string, v interface{}) error {
+	gotMsg := <-cc.ch
+	if gotMsg.Error != nil {
+		return gotMsg.Error
+	}
+
+	if gotMsg.Phase != phase {
+		return fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
+	}
+
+	return openAndUnmarshal(v, gotMsg, cc.sharedKey)
+}
+
+func (cc *clientProtocol) readPlaintext(phase string, v interface{}) error {
+	gotMsg := <-cc.ch
+	if gotMsg.Error != nil {
+		return gotMsg.Error
+	}
+
+	if gotMsg.Phase != phase {
+		return fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
+	}
+
+	err := jsonHexUnmarshal(gotMsg.Body, &v)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type collectType int
+
+const (
+	collectOffer collectType = iota + 1
+	collectTransit
+	collectAnswer
+)
+
+func (cc *clientProtocol) Collect(msgTypes ...collectType) (*msgCollector, error) {
+	collector := &msgCollector{
+		sharedKey: cc.sharedKey,
+	}
+
+	for _, mt := range msgTypes {
+		switch mt {
+		case collectOffer:
+			collector.collectOffer = true
+		case collectTransit:
+			collector.collectTransit = true
+		case collectAnswer:
+			collector.collectAnswer = true
+		default:
+			return nil, fmt.Errorf("Unknown collect msg type %d", msgTypes)
+		}
+	}
+
+	err := collector.collect(cc.ch)
+	if err != nil {
+		return nil, err
+	}
+	return collector, nil
 }

@@ -2,8 +2,6 @@ package wormhole
 
 import (
 	"context"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,7 +9,6 @@ import (
 	"github.com/psanford/wormhole-william/random"
 	"github.com/psanford/wormhole-william/rendezvous"
 	"github.com/psanford/wormhole-william/wordlist"
-	"salsa.debian.org/vasudev/gospake2"
 )
 
 // SendText returns nameplate+pass-phrase, result chan, error
@@ -32,6 +29,8 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 	}
 
 	pwStr := nameplate + "-" + wordlist.ChooseWords(c.wordCount())
+
+	clientProto := newClientProtocol(ctx, rc, sideID, appID)
 
 	ch := make(chan SendResult, 1)
 	go func() {
@@ -56,124 +55,48 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 			return
 		}
 
-		pw := gospake2.NewPassword(pwStr)
-		spake := gospake2.SPAKE2Symmetric(pw, gospake2.NewIdentityS(appID))
-		pakeMsgBody := spake.Start()
-
-		pm := pakeMsg{
-			Body: hex.EncodeToString(pakeMsgBody),
-		}
-		phase := "pake"
-		rc.AddMessage(ctx, phase, jsonHexMarshal(pm))
-
-		recvChan := rc.MsgChan(ctx)
-
-		gotMsg := <-recvChan
-		if gotMsg.Error != nil {
-			sendErr(gotMsg.Error)
-			return
-		}
-
-		if gotMsg.Phase != phase {
-			sendErr(fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase))
-			return
-		}
-
-		var gotPM pakeMsg
-		err = jsonHexUnmarshal(gotMsg.Body, &gotPM)
+		err = clientProto.WritePake(ctx, pwStr)
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		otherSidesMsg, err := hex.DecodeString(gotPM.Body)
+		err = clientProto.ReadPake()
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		sharedKey, err := spake.Finish(otherSidesMsg)
+		err = clientProto.WriteVersion(ctx)
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		phase = "version"
-		verInfo := genericMessage{
-			AppVersions: &appVersionsMsg{},
-		}
-
-		jsonOut, err := json.Marshal(verInfo)
+		_, err = clientProto.ReadVersion()
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		err = sendEncryptedMessage(ctx, rc, jsonOut, sharedKey, sideID, phase)
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		gotMsg = <-recvChan
-		if gotMsg.Error != nil {
-			sendErr(gotMsg.Error)
-			return
-		}
-
-		if gotMsg.Phase != phase {
-			sendErr(fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase))
-			return
-		}
-
-		var gotVersion genericMessage
-		err = openAndUnmarshal(&gotVersion, gotMsg, sharedKey)
-		if err != nil {
-			sendErr(err)
-			return
-		}
-		if gotVersion.AppVersions == nil {
-			sendErr(errors.New("Expected app_versions message"))
-			return
-
-		}
-
-		phase = "0"
 		offer := genericMessage{
 			Offer: &offerMsg{
 				Message: &msg,
 			},
 		}
-		offerJson, err := json.Marshal(offer)
+		err = clientProto.WriteAppData(ctx, offer)
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		err = sendEncryptedMessage(ctx, rc, offerJson, sharedKey, sideID, phase)
+		collector, err := clientProto.Collect(collectAnswer)
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		gotMsg = <-recvChan
-		if gotMsg.Error != nil {
-			sendErr(gotMsg.Error)
-			return
-		}
-		if gotMsg.Phase != phase {
-			sendErr(fmt.Errorf("Got unexpected phase while waiting for phase \"%s\": %s", phase, gotMsg.Phase))
-			return
-		}
-
-		var answer genericMessage
-		err = openAndUnmarshal(&answer, gotMsg, sharedKey)
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		if answer.Answer != nil && answer.Answer.MessageAck == "ok" {
+		if collector.answer.MessageAck == "ok" {
 			ch <- SendResult{
 				OK: true,
 			}
@@ -214,96 +137,35 @@ func (c *Client) RecvText(ctx context.Context, code string) (message string, ret
 	if err != nil {
 		return "", err
 	}
-	recvChan := rc.MsgChan(ctx)
 
-	phase := "pake"
+	clientProto := newClientProtocol(ctx, rc, sideID, appID)
 
-	gotMsg := <-recvChan
-	if gotMsg.Error != nil {
-		return "", gotMsg.Error
-	}
-
-	if gotMsg.Phase != phase {
-		return "", fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
-	}
-
-	var gotPM pakeMsg
-	err = jsonHexUnmarshal(gotMsg.Body, &gotPM)
+	err = clientProto.WritePake(ctx, code)
 	if err != nil {
 		return "", err
 	}
 
-	otherSidesMsg, err := hex.DecodeString(gotPM.Body)
+	err = clientProto.ReadPake()
 	if err != nil {
 		return "", err
 	}
 
-	pw := gospake2.NewPassword(code)
-	spake := gospake2.SPAKE2Symmetric(pw, gospake2.NewIdentityS(appID))
-	pakeMsgBody := spake.Start()
-
-	pm := pakeMsg{
-		Body: hex.EncodeToString(pakeMsgBody),
-	}
-	err = rc.AddMessage(ctx, phase, jsonHexMarshal(pm))
+	err = clientProto.WriteVersion(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	sharedKey, err := spake.Finish(otherSidesMsg)
+	_, err = clientProto.ReadVersion()
 	if err != nil {
 		return "", err
 	}
 
-	phase = "version"
-	verInfo := genericMessage{
-		AppVersions: &appVersionsMsg{},
-	}
-
-	jsonOut, err := json.Marshal(verInfo)
+	collector, err := clientProto.Collect(collectOffer)
 	if err != nil {
 		return "", err
 	}
 
-	err = sendEncryptedMessage(ctx, rc, jsonOut, sharedKey, sideID, phase)
-	if err != nil {
-		return "", err
-	}
-
-	gotMsg = <-recvChan
-	if gotMsg.Error != nil {
-		return "", gotMsg.Error
-	}
-
-	if gotMsg.Phase != phase {
-		return "", fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
-	}
-
-	var gotVersion genericMessage
-	err = openAndUnmarshal(&gotVersion, gotMsg, sharedKey)
-	if err != nil {
-		return "", err
-	}
-	if gotVersion.AppVersions == nil {
-		return "", errors.New("Expected app_versions message")
-	}
-
-	phase = "0"
-	gotMsg = <-recvChan
-	if gotMsg.Error != nil {
-		return "", gotMsg.Error
-	}
-	if gotMsg.Phase != phase {
-		return "", fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
-	}
-
-	var offer genericMessage
-	err = openAndUnmarshal(&offer, gotMsg, sharedKey)
-	if err != nil {
-		return "", err
-	}
-
-	if offer.Offer == nil || offer.Offer.Message == nil {
+	if collector.offer.Message == nil {
 		return "", errors.New("Got non-text offer")
 	}
 
@@ -313,15 +175,10 @@ func (c *Client) RecvText(ctx context.Context, code string) (message string, ret
 		},
 	}
 
-	answerJson, err := json.Marshal(answer)
+	err = clientProto.WriteAppData(ctx, answer)
 	if err != nil {
 		return "", err
 	}
 
-	err = sendEncryptedMessage(ctx, rc, answerJson, sharedKey, sideID, phase)
-	if err != nil {
-		return "", err
-	}
-
-	return *offer.Offer.Message, nil
+	return *collector.offer.Message, nil
 }
