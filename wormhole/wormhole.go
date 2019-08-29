@@ -1,3 +1,4 @@
+// Package wormhole provides a magic wormhole client implementation.
 package wormhole
 
 import (
@@ -18,8 +19,7 @@ import (
 	"salsa.debian.org/vasudev/gospake2"
 )
 
-// client or just send() and recv() methods?
-
+// A Client is wormhole client. Its zero value is a usable client.
 type Client struct {
 	// AppID is the identity string of the client sent to the rendezvous server.
 	// Two clients can only communicate if they have the same AppID.
@@ -41,15 +41,18 @@ type Client struct {
 	PassPhraseComponentLength int
 }
 
-var WormholeCLIAppID = "lothar.com/wormhole/text-or-file-xfer"
-var DefaultRendezvousURL = "ws://localhost:4000/v1"
-var DefaultTransitRelayAddress = "transit.magic-wormhole.io:4001"
+var (
+	// WormholeCLIAppID is the AppID used by the python magic wormhole
+	// client. In order to interoperate with that client you must use
+	// the same AppID.
+	WormholeCLIAppID = "lothar.com/wormhole/text-or-file-xfer"
 
-// var DefaultRendezvousURL = "ws://relay.magic-wormhole.io:4000/v1"
+	// DefaultRendezvousURL is the default Rendezvous server to use.
+	DefaultRendezvousURL = "ws://relay.magic-wormhole.io:4000/v1"
 
-func NewClient() *Client {
-	return &Client{}
-}
+	// DefaultTransitRelayAddress is the default transit server to ues.
+	DefaultTransitRelayAddress = "transit.magic-wormhole.io:4001"
+)
 
 func (c *Client) url() string {
 	if c.RendezvousURL != "" {
@@ -85,6 +88,7 @@ func (c *Client) validateRelayAddr() error {
 	return err
 }
 
+// SendResult has information about whether or not a Send command was successful.
 type SendResult struct {
 	OK    bool
 	Error error

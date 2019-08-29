@@ -57,7 +57,7 @@ func main() {
 		return nil
 	})
 
-	c := wormhole.NewClient()
+	var c wormhole.Client
 
 	ctx := context.Background()
 	code, status, err := c.SendDirectory(ctx, dirname, entries)

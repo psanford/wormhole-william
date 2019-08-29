@@ -17,10 +17,10 @@ func TestWormholeSendRecvText(t *testing.T) {
 
 	url := rs.WebSocketURL()
 
-	c0 := NewClient()
+	var c0 Client
 	c0.RendezvousURL = url
 
-	c1 := NewClient()
+	var c1 Client
 	c1.RendezvousURL = url
 
 	secretText := "Hialeah-deviltry"

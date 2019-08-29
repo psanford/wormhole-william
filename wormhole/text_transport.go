@@ -11,7 +11,11 @@ import (
 	"github.com/psanford/wormhole-william/wordlist"
 )
 
-// SendText returns nameplate+pass-phrase, result chan, error
+// SendText sends a text message via the wormhole protocol.
+//
+// It returns the nameplate+passphrase code to give to the reciever, a result chan
+// that gets written to once the reciever actually attempts to read the message
+// (either successfully or not).
 func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendResult, error) {
 	sideID := random.SideID()
 	appID := c.appID()
@@ -110,6 +114,7 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 	return pwStr, ch, nil
 }
 
+// RecvText receives a text message from a wormhole sender with the given code.
 func (c *Client) RecvText(ctx context.Context, code string) (message string, returnErr error) {
 	sideID := random.SideID()
 	appID := c.appID()

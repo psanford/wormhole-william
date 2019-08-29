@@ -19,6 +19,9 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 )
 
+// SendFile sends a single file via the wormhole protocol. It returns a nameplate+passhrase code to give to the
+// receiver, a result channel that will be written to after the receiver attempts to read (either successfully or not)
+// and an error if one occured.
 func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker) (string, chan SendResult, error) {
 	if err := c.validateRelayAddr(); err != nil {
 		return "", nil, fmt.Errorf("Invalid TransitRelayAddress: %s", err)
@@ -212,6 +215,7 @@ func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker)
 	return pwStr, ch, nil
 }
 
+// A DirectoryEntry represents a single file to be sent by SendDirectory
 type DirectoryEntry struct {
 	// Path is the relative path to the file from the top level directory.
 	Path string
@@ -225,6 +229,10 @@ type DirectoryEntry struct {
 
 // SendDirectory sends a tree of files to a receiving client.
 // Each DirectoryEntry Path must be prefixed by the directoryName provided to SendDirectory.
+//
+// It returns a nameplate+passhrase code to give to the
+// receiver, a result channel that will be written to after the receiver attempts to read (either successfully or not)
+// and an error if one occured.
 func (c *Client) SendDirectory(ctx context.Context, directoryName string, entries []DirectoryEntry) (string, chan SendResult, error) {
 	zipInfo, err := makeTmpZip(directoryName, entries)
 	if err != nil {
@@ -470,7 +478,7 @@ func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, err
 			return nil, err
 		}
 
-		var counter CountWriter
+		var counter countWriter
 
 		_, err = io.Copy(f, io.TeeReader(r, &counter))
 		if err != nil {
@@ -504,11 +512,11 @@ func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, err
 	return &result, nil
 }
 
-type CountWriter struct {
+type countWriter struct {
 	count int64
 }
 
-func (c *CountWriter) Write(p []byte) (int, error) {
+func (c *countWriter) Write(p []byte) (int, error) {
 	c.count = c.count + int64(len(p))
 	return len(p), nil
 }

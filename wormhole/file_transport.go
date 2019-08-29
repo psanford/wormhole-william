@@ -25,11 +25,11 @@ type fileTransportAck struct {
 	SHA256 string `json:"sha256"`
 }
 
-type FileType int
+type SentFileType int
 
 const (
-	FileTypeFile FileType = iota + 1
-	FileTypeDirectory
+	SentFileTypeFile SentFileType = iota + 1
+	SentFileTypeDirectory
 )
 
 type transportCryptor struct {

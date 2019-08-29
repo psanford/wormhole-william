@@ -17,7 +17,7 @@ func main() {
 
 	code := os.Args[1]
 
-	c := wormhole.NewClient()
+	var c wormhole.Client
 
 	ctx := context.Background()
 	msg, err := c.RecvText(ctx, code)

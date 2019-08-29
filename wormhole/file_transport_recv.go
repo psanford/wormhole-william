@@ -15,9 +15,14 @@ import (
 	"github.com/psanford/wormhole-william/rendezvous"
 )
 
+// A FileReceiver contains information about a file send to this wormhole client.
+//
+// The Type field indicates if the sender sent a single file or a directory.
+// If the Type is SentFileTypeDirectory then reading from the FileReceiver will
+// read a zip file of the contents of the directory.
 type FileReceiver struct {
 	Name      string
-	Type      FileType
+	Type      SentFileType
 	Bytes     int
 	FileCount int
 
@@ -29,6 +34,7 @@ type FileReceiver struct {
 	readErr error
 }
 
+// Read the decripted contents sent to this client.
 func (f *FileReceiver) Read(p []byte) (int, error) {
 	if f.readErr != nil {
 		return 0, f.readErr
@@ -44,7 +50,6 @@ func (f *FileReceiver) Read(p []byte) (int, error) {
 			f.readErr = err
 			return 0, err
 		}
-		// log.Println("read chunk", len(rec))
 		f.buf = rec
 	}
 
@@ -69,8 +74,11 @@ func (f *FileReceiver) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-func (c *Client) RecvFile(ctx context.Context, code string) (fileReciever *FileReceiver, returnErr error) {
-
+// RecvFile receives a file payload from a wormhole sender.
+//
+// It returns a FileReceiver with metadata about the file being sent.
+// To read the contents of the file call FileReceiver.Read().
+func (c *Client) RecvFile(ctx context.Context, code string) (fileReceiver *FileReceiver, returnErr error) {
 	sideID := random.SideID()
 	appID := c.appID()
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
@@ -126,12 +134,12 @@ func (c *Client) RecvFile(ctx context.Context, code string) (fileReciever *FileR
 	var fr FileReceiver
 
 	if collector.offer.File != nil {
-		fr.Type = FileTypeFile
+		fr.Type = SentFileTypeFile
 		fr.Name = collector.offer.File.FileName
 		fr.Bytes = int(collector.offer.File.FileSize)
 		fr.FileCount = 1
 	} else if collector.offer.Directory != nil {
-		fr.Type = FileTypeDirectory
+		fr.Type = SentFileTypeDirectory
 		fr.Name = collector.offer.Directory.Dirname
 		fr.Bytes = int(collector.offer.Directory.ZipSize)
 		fr.FileCount = int(collector.offer.Directory.NumFiles)

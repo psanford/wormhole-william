@@ -22,7 +22,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	c := wormhole.NewClient()
+	var c wormhole.Client
 
 	ctx := context.Background()
 	code, status, err := c.SendFile(ctx, filename, f)

@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	c := wormhole.NewClient()
+	var c wormhole.Client
 
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Text to send: ")
