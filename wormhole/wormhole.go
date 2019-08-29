@@ -142,10 +142,10 @@ func derivePhaseKey(key, side, phase string) []byte {
 	return out
 }
 
-func deriveTransitKey(key, appID string) []byte {
+func deriveTransitKey(key []byte, appID string) []byte {
 	purpose := appID + "/transit-key"
 
-	r := hkdf.New(sha256.New, []byte(key), nil, []byte(purpose))
+	r := hkdf.New(sha256.New, key, nil, []byte(purpose))
 	out := make([]byte, secreboxKeySize)
 
 	_, err := io.ReadFull(r, out)
@@ -179,10 +179,10 @@ type offerFile struct {
 }
 
 type genericMessage struct {
-	Offer       *offerMsg       `json:"offer"`
-	Answer      *answerMsg      `json:"answer"`
-	Transit     *transitMsg     `json:"transit"`
-	AppVersions *appVersionsMsg `json:"app_versions"`
+	Offer       *offerMsg       `json:"offer,omitempty"`
+	Answer      *answerMsg      `json:"answer,omitempty"`
+	Transit     *transitMsg     `json:"transit,omitempty"`
+	AppVersions *appVersionsMsg `json:"app_versions,omitempty"`
 }
 
 type appVersionsMsg struct {
@@ -204,15 +204,15 @@ type transitAbility struct {
 
 type transitHintsV1 struct {
 	Hostname string               `json:"hostname"`
-	Port     int64                `json:"port"`
-	Priority int64                `json:"priority"`
+	Port     int                  `json:"port"`
+	Priority float64              `json:"priority"`
 	Type     string               `json:"type"`
 	Hints    []transitHintsV1Hint `json:"hints"`
 }
 
 type transitHintsV1Hint struct {
 	Hostname string  `json:"hostname"`
-	Port     int64   `json:"port"`
+	Port     int     `json:"port"`
 	Priority float64 `json:"priority"`
 	Type     string  `json:"type"`
 }

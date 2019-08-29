@@ -24,10 +24,12 @@ func Hex(byteCount int) string {
 	return fmt.Sprintf("%x", buf)
 }
 
-func Nonce() [24]byte {
-	var nonce [24]byte
+func Nonce() [NonceSize]byte {
+	var nonce [NonceSize]byte
 	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
 		panic(err)
 	}
 	return nonce
 }
+
+const NonceSize = 24
