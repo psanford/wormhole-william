@@ -172,14 +172,12 @@ func (c *Client) RecvFile(ctx context.Context, code string) (fileReceiver *FileR
 		return nil, err
 	}
 
-	log.Printf("try connect direct")
 	conn, err := transport.connectDirect(collector.transit)
 	if err != nil {
 		return nil, err
 	}
 
 	if conn == nil {
-		log.Printf("try connect direct relay")
 		conn, err = transport.connectViaRelay(collector.transit)
 		if err != nil {
 			return nil, err
@@ -190,7 +188,6 @@ func (c *Client) RecvFile(ctx context.Context, code string) (fileReceiver *FileR
 		return nil, errors.New("Failed to establish connection")
 	}
 
-	log.Printf("start cryptor with %s %s", conn.RemoteAddr(), conn.LocalAddr())
 	cryptor := newTransportCryptor(conn, transitKey, "transit_record_sender_key", "transit_record_receiver_key")
 
 	fr.cryptor = cryptor

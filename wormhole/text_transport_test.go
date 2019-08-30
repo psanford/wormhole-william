@@ -17,6 +17,9 @@ func TestWormholeSendRecvText(t *testing.T) {
 
 	url := rs.WebSocketURL()
 
+	// disable transit relay
+	DefaultTransitRelayAddress = ""
+
 	var c0 Client
 	c0.RendezvousURL = url
 

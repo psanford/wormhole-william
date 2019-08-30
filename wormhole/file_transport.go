@@ -245,7 +245,6 @@ func (t *fileTransport) connectToRelay(ctx context.Context, addr string, success
 		failChan <- addr
 		return
 	}
-
 	gotOk := make([]byte, 3)
 	_, err = io.ReadFull(conn, gotOk)
 	if err != nil {
@@ -423,7 +422,14 @@ func (t *fileTransport) relayHandshakeHeader() []byte {
 	return []byte(fmt.Sprintf("please relay %x for side %s\n", out, sideID))
 }
 
+// Test option to disable local listeners
+var testDisableLocalListener bool
+
 func (t *fileTransport) listen() error {
+	if testDisableLocalListener {
+		return nil
+	}
+
 	l, err := net.Listen("tcp", ":1234")
 	if err != nil {
 		return err
@@ -494,21 +500,23 @@ func (t *fileTransport) acceptConnection(ctx context.Context) (net.Conn, error) 
 		}()
 	}
 
-	defer t.listener.Close()
+	if t.listener != nil {
+		defer t.listener.Close()
 
-	go func() {
-		for {
-			conn, err := t.listener.Accept()
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				acceptErrCh <- err
-				break
+		go func() {
+			for {
+				conn, err := t.listener.Accept()
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					acceptErrCh <- err
+					break
+				}
+
+				go t.handleIncomingConnection(conn, readyCh, cancelCh)
 			}
-
-			go t.handleIncomingConnection(conn, readyCh, cancelCh)
-		}
-	}()
+		}()
+	}
 
 	select {
 	case <-ctx.Done():

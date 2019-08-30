@@ -21,10 +21,10 @@ import (
 
 // A Client is wormhole client. Its zero value is a usable client.
 type Client struct {
-	// AppID is the identity string of the client sent to the rendezvous server.
-	// Two clients can only communicate if they have the same AppID.
-	// The AppID should be a domain name + path to make it globally unique.
-	// If empty, WormholeCLIAppID will be used.
+	// AppID is the identity string of the client sent to the rendezvous
+	// server. Two clients can only communicate if they have the same
+	// AppID. The AppID should be a domain name + path to make it
+	// globally unique. If empty, WormholeCLIAppID will be used.
 	AppID string
 	// RendezvousURL is the url of the Rendezvous server. If empty,
 	// DefaultRendezvousURL will be used.
@@ -84,6 +84,9 @@ func (c *Client) relayAddr() string {
 }
 
 func (c *Client) validateRelayAddr() error {
+	if c.relayAddr() == "" {
+		return nil
+	}
 	_, _, err := net.SplitHostPort(c.relayAddr())
 	return err
 }
