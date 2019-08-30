@@ -1,7 +1,7 @@
 wormhole-william: a go implementation of magic wormhole
 =======================================================
 
-wormhole-william is a go (golang) implementation of magic wormhole. The goal is to be compatible with the python magic wormhole cli tool.
+wormhole-william is a go (golang) implementation of [magic wormhole](https://magic-wormhole.readthedocs.io/en/latest/). The goal is to be compatible with the [python magic wormhole cli tool](https://github.com/warner/magic-wormhole).
 
 Currently, wormhole-william supports:
 - sending and receiving text over the wormhole protocol
