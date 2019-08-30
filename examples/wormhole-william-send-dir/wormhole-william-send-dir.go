@@ -28,7 +28,7 @@ func main() {
 	}
 
 	if !stat.IsDir() {
-		log.Fatal("%s is not a directory", dirpath)
+		log.Fatalf("%s is not a directory", dirpath)
 	}
 
 	prefix, dirname := filepath.Split(dirpath)

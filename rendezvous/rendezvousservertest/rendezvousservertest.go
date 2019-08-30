@@ -214,7 +214,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 
 		msg, err := serverUnmarshal(msgBytes)
 		if err != nil {
-			panic(err)
+			panic(fmt.Sprintf("err: %s msg: %s", err, msgBytes))
 		}
 
 		switch m := msg.(type) {

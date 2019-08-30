@@ -60,7 +60,9 @@ type Client struct {
 	pendingMsgIDCntr     uint32
 	pendingMsgWaiterCntr uint32
 
-	mu                sync.Mutex
+	sendCmdMu sync.Mutex
+
+	pendingMsgMu      sync.Mutex
 	pendingMsgs       []pendingMsg
 	pendingMsgWaiters map[uint32]chan uint32
 
@@ -158,8 +160,8 @@ func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
 }
 
 func (c *Client) searchPendingMsgs(ctx context.Context, msgType string) *pendingMsg {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.pendingMsgMu.Lock()
+	defer c.pendingMsgMu.Unlock()
 
 	for i, pending := range c.pendingMsgs {
 		if pending.msgType == msgType {
@@ -179,8 +181,8 @@ func (c *Client) registerWaiter() (uint32, <-chan uint32) {
 	nextID := atomic.AddUint32(&c.pendingMsgWaiterCntr, 1)
 	ch := make(chan uint32, 1)
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.pendingMsgMu.Lock()
+	defer c.pendingMsgMu.Unlock()
 	c.pendingMsgWaiters[nextID] = ch
 	if len(c.pendingMsgs) > 0 {
 		ch <- c.pendingMsgs[len(c.pendingMsgs)-1].id
@@ -190,8 +192,8 @@ func (c *Client) registerWaiter() (uint32, <-chan uint32) {
 }
 
 func (c *Client) deregisterWaiter(id uint32) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.pendingMsgMu.Lock()
+	defer c.pendingMsgMu.Unlock()
 	delete(c.pendingMsgWaiters, id)
 }
 
@@ -341,11 +343,11 @@ OUTER:
 		// loop over all pending messages we haven't sent
 		// to outCh yet
 		for {
-			c.mu.Lock()
+			c.pendingMsgMu.Lock()
 			if len(c.mailboxMsgs)-1 >= nextOffset {
 				nextMsg = &c.mailboxMsgs[nextOffset]
 			}
-			c.mu.Unlock()
+			c.pendingMsgMu.Unlock()
 
 			if nextMsg == nil {
 				break
@@ -381,16 +383,16 @@ func (c *Client) registerMailboxWaiter() (uint32, <-chan int) {
 	nextID := atomic.AddUint32(&c.pendingMsgWaiterCntr, 1)
 	ch := make(chan int, 1)
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.pendingMsgMu.Lock()
+	defer c.pendingMsgMu.Unlock()
 	c.pendingMailboxWaiters[nextID] = ch
 
 	return nextID, ch
 }
 
 func (c *Client) deregisterMailboxWaiter(id uint32) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.pendingMsgMu.Lock()
+	defer c.pendingMsgMu.Unlock()
 	delete(c.pendingMailboxWaiters, id)
 }
 
@@ -440,16 +442,20 @@ func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*msgs.Ack, e
 		return nil, err
 	}
 
+	c.sendCmdMu.Lock()
 	err = c.wsClient.WriteJSON(msg)
 	if err != nil {
+		c.sendCmdMu.Unlock()
 		return nil, err
 	}
 
 	var ack msgs.Ack
 	err = c.readMsg(ctx, &ack)
 	if err != nil {
+		c.sendCmdMu.Unlock()
 		return nil, err
 	}
+	c.sendCmdMu.Unlock()
 
 	if ack.ID != id {
 		return nil, fmt.Errorf("Got ack for different message. Got %s send: %+v", ack.ID, msg)
@@ -571,9 +577,9 @@ func (c *Client) releaseNameplate(ctx context.Context, nameplate string) error {
 }
 
 func (c *Client) openMailbox(ctx context.Context, mailbox string) error {
-	c.mu.Lock()
+	c.pendingMsgMu.Lock()
 	c.mailboxID = mailbox
-	c.mu.Unlock()
+	c.pendingMsgMu.Unlock()
 
 	open := msgs.Open{
 		Mailbox: mailbox,
@@ -626,7 +632,7 @@ func (c *Client) readMessages(ctx context.Context) {
 				Body:  mm.Body,
 			}
 
-			c.mu.Lock()
+			c.pendingMsgMu.Lock()
 			c.mailboxMsgs = append(c.mailboxMsgs, mboxMsg)
 			maxOffset := len(c.mailboxMsgs) - 1
 
@@ -636,11 +642,11 @@ func (c *Client) readMessages(ctx context.Context) {
 				default:
 				}
 			}
-			c.mu.Unlock()
+			c.pendingMsgMu.Unlock()
 		} else {
 			nextID := atomic.AddUint32(&c.pendingMsgIDCntr, 1)
 
-			c.mu.Lock()
+			c.pendingMsgMu.Lock()
 			c.pendingMsgs = append(c.pendingMsgs, pendingMsg{
 				id:      nextID,
 				msgType: genericMsg.Type,
@@ -653,7 +659,7 @@ func (c *Client) readMessages(ctx context.Context) {
 				default:
 				}
 			}
-			c.mu.Unlock()
+			c.pendingMsgMu.Unlock()
 		}
 
 	}
