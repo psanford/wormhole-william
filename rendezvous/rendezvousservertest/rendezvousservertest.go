@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/psanford/wormhole-william/random"
+	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
 )
 
@@ -240,7 +240,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			for i := int16(1); i < math.MaxInt16; i++ {
 				mboxID := ts.nameplates[i]
 				if mboxID == "" {
-					mboxID = random.Hex(20)
+					mboxID = crypto.RandHex(20)
 
 					mbox := newMailbox()
 

@@ -11,7 +11,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/psanford/wormhole-william/random"
+	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
 )
 
@@ -79,7 +79,7 @@ func (f *FileReceiver) Read(p []byte) (int, error) {
 // It returns a FileReceiver with metadata about the file being sent.
 // To read the contents of the file call FileReceiver.Read().
 func (c *Client) RecvFile(ctx context.Context, code string) (fileReceiver *FileReceiver, returnErr error) {
-	sideID := random.SideID()
+	sideID := crypto.RandSideID()
 	appID := c.appID()
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
 

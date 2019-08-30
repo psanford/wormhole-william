@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/psanford/wormhole-william/random"
+	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
 	"github.com/psanford/wormhole-william/wordlist"
 )
@@ -17,7 +17,7 @@ import (
 // that gets written to once the reciever actually attempts to read the message
 // (either successfully or not).
 func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendResult, error) {
-	sideID := random.SideID()
+	sideID := crypto.RandSideID()
 	appID := c.appID()
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
 
@@ -116,7 +116,7 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 
 // RecvText receives a text message from a wormhole sender with the given code.
 func (c *Client) RecvText(ctx context.Context, code string) (message string, returnErr error) {
-	sideID := random.SideID()
+	sideID := crypto.RandSideID()
 	appID := c.appID()
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
 

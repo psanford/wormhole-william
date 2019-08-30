@@ -12,7 +12,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/psanford/wormhole-william/random"
+	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -118,7 +118,7 @@ func openAndUnmarshal(v interface{}, mb rendezvous.MailboxEvent, sharedKey []byt
 
 func sendEncryptedMessage(ctx context.Context, rc *rendezvous.Client, msg, sharedKey []byte, sideID, phase string) error {
 	var sealKey [32]byte
-	nonce := random.Nonce()
+	nonce := crypto.RandNonce()
 
 	msgKey := derivePhaseKey(string(sharedKey), sideID, phase)
 	copy(sealKey[:], msgKey)

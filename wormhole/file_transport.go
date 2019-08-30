@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/psanford/wormhole-william/random"
+	"github.com/psanford/wormhole-william/internal/crypto"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/nacl/secretbox"
 )
@@ -59,7 +59,7 @@ func newTransportCryptor(c net.Conn, transitKey []byte, readPurpose, writePurpos
 
 	return &transportCryptor{
 		conn:          c,
-		prefixBuf:     make([]byte, 4+random.NonceSize),
+		prefixBuf:     make([]byte, 4+crypto.NonceSize),
 		nextReadNonce: big.NewInt(0),
 		readKey:       readKey,
 		writeKey:      writeKey,
@@ -93,7 +93,7 @@ func (d *transportCryptor) readRecord() ([]byte, error) {
 
 	d.nextReadNonce.Add(d.nextReadNonce, big.NewInt(1))
 
-	sealedMsg := make([]byte, l-random.NonceSize)
+	sealedMsg := make([]byte, l-crypto.NonceSize)
 	_, err = io.ReadFull(d.conn, sealedMsg)
 	if err != nil {
 		d.err = err
@@ -110,13 +110,13 @@ func (d *transportCryptor) readRecord() ([]byte, error) {
 }
 
 func (d *transportCryptor) writeRecord(msg []byte) error {
-	var nonce [random.NonceSize]byte
+	var nonce [crypto.NonceSize]byte
 
 	if d.nextWriteNonce == math.MaxUint64 {
 		panic("Nonce exhaustion")
 	}
 
-	binary.BigEndian.PutUint64(nonce[random.NonceSize-8:], d.nextWriteNonce)
+	binary.BigEndian.PutUint64(nonce[crypto.NonceSize-8:], d.nextWriteNonce)
 	d.nextWriteNonce++
 
 	sealedMsg := secretbox.Seal(nil, msg, &nonce, &d.writeKey)
@@ -418,7 +418,7 @@ func (t *fileTransport) relayHandshakeHeader() []byte {
 		panic(err)
 	}
 
-	sideID := random.Hex(8)
+	sideID := crypto.RandHex(8)
 
 	return []byte(fmt.Sprintf("please relay %x for side %s\n", out, sideID))
 }

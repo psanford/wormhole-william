@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/psanford/wormhole-william/random"
+	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/rendezvousservertest"
 )
 
@@ -13,8 +13,8 @@ func TestBasicClient(t *testing.T) {
 	ts := rendezvousservertest.NewServer()
 	defer ts.Close()
 
-	side0 := random.SideID()
-	side1 := random.SideID()
+	side0 := crypto.RandSideID()
+	side1 := crypto.RandSideID()
 	appID := "superlatively-abbeys"
 
 	c0 := NewClient(ts.WebSocketURL(), side0, appID)

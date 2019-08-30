@@ -1,4 +1,4 @@
-package random
+package crypto
 
 import (
 	"crypto/rand"
@@ -6,15 +6,15 @@ import (
 	"io"
 )
 
-// SideID returns a string appropate for use
+// RandSideID returns a string appropate for use
 // as the Side ID for a client.
-func SideID() string {
-	return Hex(5)
+func RandSideID() string {
+	return RandHex(5)
 }
 
-// Hex generates secure random bytes of byteCount long
+// RandHex generates secure random bytes of byteCount long
 // and returns that in hex encoded string format
-func Hex(byteCount int) string {
+func RandHex(byteCount int) string {
 	buf := make([]byte, byteCount)
 	_, err := io.ReadFull(rand.Reader, buf)
 	if err != nil {
@@ -24,7 +24,7 @@ func Hex(byteCount int) string {
 	return fmt.Sprintf("%x", buf)
 }
 
-func Nonce() [NonceSize]byte {
+func RandNonce() [NonceSize]byte {
 	var nonce [NonceSize]byte
 	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
 		panic(err)

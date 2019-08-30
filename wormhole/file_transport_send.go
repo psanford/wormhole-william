@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/psanford/wormhole-william/random"
+	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
 	"github.com/psanford/wormhole-william/wordlist"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -32,7 +32,7 @@ func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker)
 		return "", nil, err
 	}
 
-	sideID := random.SideID()
+	sideID := crypto.RandSideID()
 	appID := c.appID()
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
 
@@ -239,7 +239,7 @@ func (c *Client) SendDirectory(ctx context.Context, directoryName string, entrie
 		return "", nil, err
 	}
 
-	sideID := random.SideID()
+	sideID := crypto.RandSideID()
 	appID := c.appID()
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
 

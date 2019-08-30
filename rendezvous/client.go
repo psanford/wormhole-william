@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 
 	"github.com/gorilla/websocket"
-	"github.com/psanford/wormhole-william/random"
+	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
 )
 
@@ -461,7 +461,7 @@ func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*msgs.Ack, e
 // prepareMsg populates the ID and Type fields for a message.
 // It returns the ID string or an error.
 func (c *Client) prepareMsg(msg interface{}) (string, error) {
-	id := random.Hex(2)
+	id := crypto.RandHex(2)
 
 	ptr := reflect.TypeOf(msg)
 
