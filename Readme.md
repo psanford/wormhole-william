@@ -44,12 +44,11 @@ func sendText() {
 
 	s := <-status
 
-	if s.Error != nil {
-		log.Fatalf("Send error: %s", s.Error)
-	} else if s.OK {
+
+	if s.OK {
 		fmt.Println("OK!")
 	} else {
-		log.Fatalf("Hmm not ok but also not error")
+		log.Fatalf("Send error: %s", s.Error)
 	}
 }
 
