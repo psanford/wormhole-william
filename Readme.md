@@ -1,5 +1,5 @@
-wormhole-william: a go implementation of magic wormhole
-=======================================================
+wormhole-william
+================
 
 wormhole-william is a go (golang) implementation of [magic wormhole](https://magic-wormhole.readthedocs.io/en/latest/). The goal is to be compatible with the [python magic wormhole cli tool](https://github.com/warner/magic-wormhole).
 
@@ -31,7 +31,7 @@ import (
 func sendText() {
 	var c wormhole.Client
 
-    msg := "Dillinger-entertainer"
+	msg := "Dillinger-entertainer"
 
 	ctx := context.Background()
 
