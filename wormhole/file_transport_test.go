@@ -1,6 +1,7 @@
 package wormhole
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/hex"
@@ -71,6 +72,7 @@ func TestWormholeFileTransportSendRecvViaRelayServer(t *testing.T) {
 	url := rs.WebSocketURL()
 
 	testDisableLocalListener = true
+	defer func() { testDisableLocalListener = false }()
 
 	relayServer := newTestRelayServer()
 	defer relayServer.close()
@@ -107,6 +109,97 @@ func TestWormholeFileTransportSendRecvViaRelayServer(t *testing.T) {
 
 	if !bytes.Equal(got, fileContent) {
 		t.Fatalf("File contents mismatch")
+	}
+
+	result := <-resultCh
+	if !result.OK {
+		t.Fatalf("Expected ok result but got: %+v", result)
+	}
+}
+
+func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
+	ctx := context.Background()
+
+	rs := rendezvousservertest.NewServer()
+	defer rs.Close()
+
+	url := rs.WebSocketURL()
+
+	// disable transit relay for this test
+	DefaultTransitRelayAddress = ""
+
+	var c0 Client
+	c0.RendezvousURL = url
+
+	var c1 Client
+	c1.RendezvousURL = url
+
+	personalizeContent := make([]byte, 1<<16)
+	for i := 0; i < len(personalizeContent); i++ {
+		personalizeContent[i] = byte(i)
+	}
+
+	bodiceContent := []byte("placarding-whereat")
+
+	entries := []DirectoryEntry{
+		{
+			Path: "skyjacking/personalize.txt",
+			Reader: func() (io.ReadCloser, error) {
+				b := bytes.NewReader(personalizeContent)
+				return ioutil.NopCloser(b), nil
+			},
+		},
+		{
+			Path: "skyjacking/bodice-Maytag.txt",
+			Reader: func() (io.ReadCloser, error) {
+				b := bytes.NewReader(bodiceContent)
+				return ioutil.NopCloser(b), nil
+			},
+		},
+	}
+
+	code, resultCh, err := c0.SendDirectory(ctx, "skyjacking", entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receiver, err := c1.RecvFile(ctx, code)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ioutil.ReadAll(receiver)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := zip.NewReader(bytes.NewReader(got), int64(len(got)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := ioutil.ReadAll(rc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rc.Close()
+
+		if f.Name == "personalize.txt" {
+			if !bytes.Equal(body, personalizeContent) {
+				t.Fatal("personalize.txt file content does not match")
+			}
+		} else if f.Name == "bodice-Maytag.txt" {
+			if !bytes.Equal(bodiceContent, body) {
+				t.Fatalf("bodice-Maytag.txt file content does not match %s vs %s", bodiceContent, body)
+			}
+		} else {
+			t.Fatalf("Unexpected file %s", f.Name)
+		}
 	}
 
 	result := <-resultCh
