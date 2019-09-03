@@ -25,12 +25,26 @@ type fileTransportAck struct {
 	SHA256 string `json:"sha256"`
 }
 
-type SentFileType int
+type TransferType int
 
 const (
-	SentFileTypeFile SentFileType = iota + 1
-	SentFileTypeDirectory
+	TransferFile TransferType = iota + 1
+	TransferDirectory
+	TransferText
 )
+
+func (tt TransferType) String() string {
+	switch tt {
+	case TransferFile:
+		return "TransferFile"
+	case TransferDirectory:
+		return "TransferDirectory"
+	case TransferText:
+		return "TransferText"
+	default:
+		return fmt.Sprintf("TransferTypeUnknown<%d>", tt)
+	}
+}
 
 type transportCryptor struct {
 	conn           net.Conn
@@ -430,7 +444,7 @@ func (t *fileTransport) listen() error {
 		return nil
 	}
 
-	l, err := net.Listen("tcp", ":1234")
+	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return err
 	}

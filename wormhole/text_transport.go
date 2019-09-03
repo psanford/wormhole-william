@@ -2,9 +2,7 @@ package wormhole
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
@@ -93,13 +91,21 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 			return
 		}
 
-		collector, err := clientProto.Collect(collectAnswer)
+		collector, err := clientProto.Collect()
+		if err != nil {
+			sendErr(err)
+			return
+		}
+		defer collector.close()
+
+		var answer answerMsg
+		err = collector.waitFor(&answer)
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		if collector.answer.MessageAck == "ok" {
+		if answer.MessageAck == "ok" {
 			ch <- SendResult{
 				OK: true,
 			}
@@ -112,77 +118,4 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 	}()
 
 	return pwStr, ch, nil
-}
-
-// RecvText receives a text message from a wormhole sender with the given code.
-func (c *Client) RecvText(ctx context.Context, code string) (message string, returnErr error) {
-	sideID := crypto.RandSideID()
-	appID := c.appID()
-	rc := rendezvous.NewClient(c.url(), sideID, appID)
-
-	defer func() {
-		mood := rendezvous.Errory
-		if returnErr == nil {
-			mood = rendezvous.Happy
-		} else if returnErr == errDecryptFailed {
-			mood = rendezvous.Scary
-		}
-
-		rc.Close(ctx, mood)
-	}()
-
-	_, err := rc.Connect(ctx)
-	if err != nil {
-		return "", err
-	}
-	nameplate := strings.SplitN(code, "-", 2)[0]
-
-	err = rc.AttachMailbox(ctx, nameplate)
-	if err != nil {
-		return "", err
-	}
-
-	clientProto := newClientProtocol(ctx, rc, sideID, appID)
-
-	err = clientProto.WritePake(ctx, code)
-	if err != nil {
-		return "", err
-	}
-
-	err = clientProto.ReadPake()
-	if err != nil {
-		return "", err
-	}
-
-	err = clientProto.WriteVersion(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	_, err = clientProto.ReadVersion()
-	if err != nil {
-		return "", err
-	}
-
-	collector, err := clientProto.Collect(collectOffer)
-	if err != nil {
-		return "", err
-	}
-
-	if collector.offer.Message == nil {
-		return "", errors.New("Got non-text offer")
-	}
-
-	answer := genericMessage{
-		Answer: &answerMsg{
-			MessageAck: "ok",
-		},
-	}
-
-	err = clientProto.WriteAppData(ctx, &answer)
-	if err != nil {
-		return "", err
-	}
-
-	return *collector.offer.Message, nil
 }

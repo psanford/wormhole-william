@@ -43,7 +43,7 @@ func TestWormholeFileTransportSendRecvDirect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	receiver, err := c1.RecvFile(ctx, code)
+	receiver, err := c1.Receive(ctx, code)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestWormholeFileTransportSendRecvViaRelayServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	receiver, err := c1.RecvFile(ctx, code)
+	receiver, err := c1.Receive(ctx, code)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	receiver, err := c1.RecvFile(ctx, code)
+	receiver, err := c1.Receive(ctx, code)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ type testRelayServer struct {
 }
 
 func newTestRelayServer() *testRelayServer {
-	l, err := net.Listen("tcp", ":1234")
+	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic(err)
 	}

@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"reflect"
 	"strconv"
+	"sync"
 
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
@@ -191,6 +193,10 @@ type offerMsg struct {
 	File      *offerFile      `json:"file,omitempty"`
 }
 
+func (m *offerMsg) Type() collectType {
+	return collectOffer
+}
+
 type offerDirectory struct {
 	Dirname  string `json:"dirname"`
 	Mode     string `json:"mode"`
@@ -217,6 +223,14 @@ type appVersionsMsg struct {
 type answerMsg struct {
 	MessageAck string `json:"message_ack"`
 	FileAck    string `json:"file_ack"`
+}
+
+func (m *answerMsg) Type() collectType {
+	return collectAnswer
+}
+
+type collectable interface {
+	Type() collectType
 }
 
 func splitNonce(sealedMsg []byte) (nonce [24]byte, msg []byte) {
@@ -248,79 +262,165 @@ type transitMsg struct {
 	HintsV1     []transitHintsV1 `json:"hints-v1"`
 }
 
+func (m *transitMsg) Type() collectType {
+	return collectTransit
+}
+
 type msgCollector struct {
 	sharedKey      []byte
 	collectOffer   bool
 	collectTransit bool
 	collectAnswer  bool
 
-	offer   *offerMsg
-	answer  *answerMsg
-	transit *transitMsg
+	subscribe chan *collectSubscription
+
+	closeMu sync.Mutex
+	closed  bool
+	done    chan struct{}
 }
 
-func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) error {
-	var pending int
-	for _, collect := range []bool{c.collectOffer, c.collectTransit, c.collectAnswer} {
-		if collect {
-			pending++
-		}
+func newMsgCollector(sharedKey []byte) *msgCollector {
+	return &msgCollector{
+		sharedKey: sharedKey,
+		subscribe: make(chan *collectSubscription),
+		done:      make(chan struct{}),
+	}
+}
+
+func (c *msgCollector) close() {
+	c.closeMu.Lock()
+	defer c.closeMu.Unlock()
+	if !c.closed {
+		c.closed = true
+		close(c.done)
+	}
+}
+
+func (c *msgCollector) waitFor(msg collectable) error {
+	if reflect.ValueOf(msg).Kind() != reflect.Ptr {
+		return errors.New("You must pass waitFor a pointer to a struct")
+	}
+	sub := collectSubscription{
+		collectMsg: msg,
+		result:     make(chan collectResult, 1),
 	}
 
-	for pending > 0 {
-		gotMsg, ok := <-ch
-		if !ok {
-			return errors.New("Channel closed before collecting all messages")
-		}
-		if gotMsg.Error != nil {
-			return gotMsg.Error
-		}
-
-		if _, err := strconv.Atoi(gotMsg.Phase); err != nil {
-			return fmt.Errorf("Got unexpected phase: %s", gotMsg.Phase)
-		}
-
-		var msg genericMessage
-		err := openAndUnmarshal(&msg, gotMsg, c.sharedKey)
-		if err != nil {
-			return err
-		}
-
-		if msg.Offer != nil {
-			if !c.collectOffer {
-				return errors.New("Got offer message when wasn't expecting one")
-			}
-			if c.offer != nil {
-				return errors.New("Got multiple offer messages")
-			}
-
-			c.offer = msg.Offer
-		} else if msg.Transit != nil {
-			if !c.collectTransit {
-				return errors.New("Got transit message when wasn't expecting one")
-			}
-			if c.transit != nil {
-				return errors.New("Got multiple transit messages")
-			}
-
-			c.transit = msg.Transit
-		} else if msg.Answer != nil {
-			if !c.collectAnswer {
-				return errors.New("Got answer message when wasn't expecting one")
-			}
-			if c.answer != nil {
-				return errors.New("Got multiple answer messages")
-			}
-
-			c.answer = msg.Answer
-		} else {
-			return fmt.Errorf("Got unexpected message")
-		}
-
-		pending--
+	select {
+	case <-c.done:
+		return errors.New("msgCollector closed")
+	case c.subscribe <- &sub:
 	}
+
+	result := <-sub.result
+	if result.err != nil {
+		return result.err
+	}
+
+	dst := reflect.ValueOf(msg).Elem()
+	src := reflect.ValueOf(result.result).Elem()
+
+	dst.Set(src)
 
 	return nil
+}
+
+type collectResult struct {
+	err    error
+	result collectable
+}
+
+type collectSubscription struct {
+	collectMsg collectable
+	result     chan collectResult
+}
+
+func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) {
+	pendingMsgs := make(map[collectType]collectable)
+	waiters := make(map[collectType]*collectSubscription)
+
+	errorResult := func(e error) {
+		c.close()
+		for t, waiter := range waiters {
+			waiter.result <- collectResult{
+				err: e,
+			}
+
+			delete(waiters, t)
+		}
+	}
+
+	for {
+		select {
+		case <-c.done:
+			return
+		case sub := <-c.subscribe:
+			collectType := sub.collectMsg.Type()
+
+			if m := pendingMsgs[collectType]; m != nil {
+				sub.result <- collectResult{
+					result: m,
+				}
+				delete(pendingMsgs, collectType)
+			} else {
+				if waiters[collectType] != nil {
+					sub.result <- collectResult{
+						err: errors.New("There is already a pending collect request for this type"),
+					}
+				} else {
+					waiters[collectType] = sub
+				}
+			}
+		case gotMsg, ok := <-ch:
+			if !ok {
+				c.close()
+				return
+			}
+			if gotMsg.Error != nil {
+				errorResult(gotMsg.Error)
+				return
+			}
+
+			if _, err := strconv.Atoi(gotMsg.Phase); err != nil {
+				errorResult(fmt.Errorf("Got unexpected phase: %s", gotMsg.Phase))
+				return
+			}
+
+			var msg genericMessage
+			err := openAndUnmarshal(&msg, gotMsg, c.sharedKey)
+			if err != nil {
+				errorResult(err)
+				return
+			}
+
+			var resultMsg collectable
+			var t collectType
+			if msg.Offer != nil {
+				t = collectOffer
+				resultMsg = msg.Offer
+			} else if msg.Transit != nil {
+				t = collectTransit
+				resultMsg = msg.Transit
+			} else if msg.Answer != nil {
+				t = collectAnswer
+				resultMsg = msg.Answer
+			} else {
+				continue
+			}
+
+			if sub := waiters[t]; sub != nil {
+				sub.result <- collectResult{
+					result: resultMsg,
+				}
+				delete(waiters, t)
+			} else {
+				if pendingMsgs[t] != nil {
+					errorResult(fmt.Errorf("Got multiple messages of type %s", t))
+					return
+				}
+				pendingMsgs[t] = resultMsg
+			}
+		}
+	}
 }
 
 type clientProtocol struct {
@@ -456,10 +556,21 @@ const (
 	collectAnswer
 )
 
-func (cc *clientProtocol) Collect(msgTypes ...collectType) (*msgCollector, error) {
-	collector := &msgCollector{
-		sharedKey: cc.sharedKey,
+func (ct collectType) String() string {
+	switch ct {
+	case collectOffer:
+		return "Offer"
+	case collectTransit:
+		return "Transit"
+	case collectAnswer:
+		return "Answer"
+	default:
+		return fmt.Sprintf("collectTypeUnkown<%d>", ct)
 	}
+}
+
+func (cc *clientProtocol) Collect(msgTypes ...collectType) (*msgCollector, error) {
+	collector := newMsgCollector(cc.sharedKey)
 
 	for _, mt := range msgTypes {
 		switch mt {
@@ -474,9 +585,6 @@ func (cc *clientProtocol) Collect(msgTypes ...collectType) (*msgCollector, error
 		}
 	}
 
-	err := collector.collect(cc.ch)
-	if err != nil {
-		return nil, err
-	}
+	go collector.collect(cc.ch)
 	return collector, nil
 }

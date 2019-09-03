@@ -3,6 +3,7 @@ package wormhole
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestWormholeSendRecvText(t *testing.T) {
 	nameplate := strings.SplitN(code, "-", 2)[0]
 
 	// recv with wrong code
-	msg, err := c1.RecvText(ctx, fmt.Sprintf("%s-intermarrying-aliased", nameplate))
+	msg, err := c1.Receive(ctx, fmt.Sprintf("%s-intermarrying-aliased", nameplate))
 	if err != errDecryptFailed {
 		t.Fatalf("Recv side expected decrypt failed due to wrong code but got: %s", err)
 	}
@@ -51,13 +52,18 @@ func TestWormholeSendRecvText(t *testing.T) {
 	}
 
 	// recv with correct code
-	msg, err = c1.RecvText(ctx, code)
+	msg, err = c1.Receive(ctx, code)
 	if err != nil {
 		t.Fatalf("Recv side got unexpected err: %s", err)
 	}
 
-	if msg != secretText {
-		t.Fatalf("Got Message does not match sent secret got=%s sent=%s", msg, secretText)
+	msgBody, err := ioutil.ReadAll(msg)
+	if err != nil {
+		t.Fatalf("Recv side got read err: %s", err)
+	}
+
+	if string(msgBody) != secretText {
+		t.Fatalf("Got Message does not match sent secret got=%s sent=%s", msgBody, secretText)
 	}
 
 	status = <-statusChan

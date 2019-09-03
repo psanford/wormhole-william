@@ -111,14 +111,14 @@ func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker)
 			return
 		}
 
-		transitMsg, err := transport.makeTransitMsg()
+		transit, err := transport.makeTransitMsg()
 		if err != nil {
 			sendErr(fmt.Errorf("Make transit msg error: %s", err))
 			return
 		}
 
 		err = clientProto.WriteAppData(ctx, &genericMessage{
-			Transit: transitMsg,
+			Transit: transit,
 		})
 		if err != nil {
 			sendErr(err)
@@ -139,13 +139,21 @@ func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker)
 			return
 		}
 
-		collector, err := clientProto.Collect(collectTransit, collectAnswer)
+		collector, err := clientProto.Collect()
+		if err != nil {
+			sendErr(err)
+			return
+		}
+		defer collector.close()
+
+		var answer answerMsg
+		err = collector.waitFor(&answer)
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		if collector.answer.FileAck != "ok" {
+		if answer.FileAck != "ok" {
 			sendErr(fmt.Errorf("Unexpected answer"))
 			return
 		}
@@ -350,13 +358,21 @@ func (c *Client) SendDirectory(ctx context.Context, directoryName string, entrie
 			return
 		}
 
-		collector, err := clientProto.Collect(collectTransit, collectAnswer)
+		collector, err := clientProto.Collect()
+		if err != nil {
+			sendErr(err)
+			return
+		}
+		defer collector.close()
+
+		var answer answerMsg
+		err = collector.waitFor(&answer)
 		if err != nil {
 			sendErr(err)
 			return
 		}
 
-		if collector.answer.FileAck != "ok" {
+		if answer.FileAck != "ok" {
 			sendErr(fmt.Errorf("Unexpected answer"))
 			return
 		}

@@ -58,13 +58,22 @@ func recvText(code string) {
 	var c wormhole.Client
 
 	ctx := context.Background()
-	msg, err := c.RecvText(ctx, code)
+	msg, err := c.Receive(ctx, code)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if msg.Type != wormhole.TransferText {
+		log.Fatalf("Expected a text message but got type %s", msg.Type)
+	}
+
+	msgBody, err := ioutil.ReadAll(msg)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Println("got message:")
-	fmt.Println(msg)
+	fmt.Println(msgBody)
 }
 ```
 
