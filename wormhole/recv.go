@@ -103,7 +103,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 		fr.Type = TransferDirectory
 		fr.Name = offer.Directory.Dirname
 		fr.TransferBytes = int(offer.Directory.ZipSize)
-		fr.UncompressedBytes = int(offer.File.FileSize)
+		fr.UncompressedBytes = int(offer.Directory.NumBytes)
 		fr.FileCount = int(offer.Directory.NumFiles)
 	} else {
 		return nil, errors.New("Got non-file transfer offer")

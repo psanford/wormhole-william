@@ -16,5 +16,6 @@ var rootCmd = &cobra.Command{
 
 func Execute() error {
 	rootCmd.AddCommand(&recvCommand)
+	rootCmd.AddCommand(&sendCommand)
 	return rootCmd.Execute()
 }

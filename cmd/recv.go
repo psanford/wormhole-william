@@ -52,7 +52,7 @@ var recvCommand = cobra.Command{
 			} else {
 				reader := bufio.NewReader(os.Stdin)
 				fmt.Printf("Receiving file (%s) into: %s\n", formatBytes(msg.TransferBytes), msg.Name)
-				fmt.Println("ok? (y/N):")
+				fmt.Print("ok? (y/N):")
 
 				line, err := reader.ReadString('\n')
 				if err != nil {
@@ -116,7 +116,7 @@ var recvCommand = cobra.Command{
 				reader := bufio.NewReader(os.Stdin)
 				fmt.Printf("Receiving directory (%s) into: %s\n", formatBytes(msg.TransferBytes), msg.Name)
 				fmt.Printf("%d files, %s (uncompressed)\n", msg.FileCount, formatBytes(msg.UncompressedBytes))
-				fmt.Println("ok? (y/N):")
+				fmt.Print("ok? (y/N):")
 
 				line, err := reader.ReadString('\n')
 				if err != nil {
