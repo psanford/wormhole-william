@@ -162,7 +162,7 @@ var recvCommand = cobra.Command{
 						}
 
 						if !strings.HasPrefix(p, dirName) {
-							bail("Dangerous filename detected", zf.Name)
+							bail("Dangerous filename detected: %s", zf.Name)
 						}
 
 						rc, err := zf.Open()
