@@ -14,10 +14,11 @@ import (
 // If the Type is TransferDirectory then reading from the IncomingMessage will
 // read a zip file of the contents of the directory.
 type IncomingMessage struct {
-	Name      string
-	Type      TransferType
-	Bytes     int
-	FileCount int
+	Name              string
+	Type              TransferType
+	TransferBytes     int
+	UncompressedBytes int
+	FileCount         int
 
 	textReader io.Reader
 
@@ -67,7 +68,7 @@ func (f *IncomingMessage) readCrypt(p []byte) (int, error) {
 	f.buf = f.buf[n:]
 	f.readCount += n
 	f.sha256.Write(p[:n])
-	if f.readCount >= f.Bytes {
+	if f.readCount >= f.TransferBytes {
 		f.readErr = io.EOF
 
 		sum := f.sha256.Sum(nil)

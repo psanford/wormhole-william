@@ -14,8 +14,8 @@ import (
 
 // Receive receives a message sent by a wormhole client.
 //
-// It returns a FileReceiver with metadata about the file being sent.
-// To read the contents of the file call FileReceiver.Read().
+// It returns an IncomingMessage with metadata about the payload being sent.
+// To read the contents of the message call IncomingMessage.Read().
 func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage, returnErr error) {
 	sideID := crypto.RandSideID()
 	appID := c.appID()
@@ -96,12 +96,14 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	} else if offer.File != nil {
 		fr.Type = TransferFile
 		fr.Name = offer.File.FileName
-		fr.Bytes = int(offer.File.FileSize)
+		fr.TransferBytes = int(offer.File.FileSize)
+		fr.UncompressedBytes = int(offer.File.FileSize)
 		fr.FileCount = 1
 	} else if offer.Directory != nil {
 		fr.Type = TransferDirectory
 		fr.Name = offer.Directory.Dirname
-		fr.Bytes = int(offer.Directory.ZipSize)
+		fr.TransferBytes = int(offer.Directory.ZipSize)
+		fr.UncompressedBytes = int(offer.File.FileSize)
 		fr.FileCount = int(offer.Directory.NumFiles)
 	} else {
 		return nil, errors.New("Got non-file transfer offer")

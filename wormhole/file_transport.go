@@ -340,6 +340,8 @@ func (t *fileTransport) makeTransitMsg() (*transitMsg, error) {
 				Type: "relay-v1",
 			},
 		},
+		// make a slice so this jsons to [] and not null
+		HintsV1: make([]transitHintsV1, 0),
 	}
 
 	if t.listener != nil {
