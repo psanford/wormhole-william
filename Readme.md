@@ -25,7 +25,7 @@ Flags:
   -h, --help   help for send
 
 
-$ o ./wormhole-william recv --help
+$ ./wormhole-william recv --help
 Receive a text message, file, or directory...
 
 Usage:
