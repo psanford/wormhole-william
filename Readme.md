@@ -36,6 +36,15 @@ Flags:
 
 ```
 
+## Building the CLI tool
+
+wormhole-william uses go modules so it requires a version of the go tool chain >= 1.11. If you are using a version of go that supports modules you can clone the repo outside of your GOPATH and do a `go build` in the top level directory.
+
+To just install via the go tool run:
+
+```
+go get -u github.com/psanford/wormhole-william
+```
 
 ## API Usage
 
@@ -102,7 +111,7 @@ func recvText(code string) {
 }
 ```
 
-See the examples directory for working examples of how to use the API to send and receive text, files and directories.
+See the [examples](https://github.com/psanford/wormhole-william/tree/master/examples) directory for working examples of how to use the API to send and receive text, files and directories.
 
 ## API status
 
