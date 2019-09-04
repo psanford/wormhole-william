@@ -12,7 +12,32 @@ Currently, wormhole-william supports:
 
 https://godoc.org/github.com/psanford/wormhole-william/wormhole
 
-## Usage
+## CLI Usage
+
+```
+$ ./wormhole-william send --help
+Send a text message, file, or directory...
+
+Usage:
+  wormhole-william send [WHAT] [flags]
+
+Flags:
+  -h, --help   help for send
+
+
+$ o ./wormhole-william recv --help
+Receive a text message, file, or directory...
+
+Usage:
+  wormhole-william recv [code] [flags]
+
+Flags:
+  -h, --help   help for recv
+
+```
+
+
+## API Usage
 
 Sending text:
 ```
