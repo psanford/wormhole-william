@@ -13,7 +13,7 @@ jobs:
         
     steps:
 
-    - name: Set up Go 1.12
+    - name: Set up Go
       uses: actions/setup-go@v1
       with:
         go-version: ${{ matrix.go-version }}
@@ -26,4 +26,4 @@ jobs:
       run: go build -v ./...
       
     - name: Test
-      run: go test -v ./...
+      run: go test -v ./... --timeout 60s

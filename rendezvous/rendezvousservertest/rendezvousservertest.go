@@ -104,10 +104,15 @@ func prepareServerMsg(msg interface{}) {
 	ptr := reflect.TypeOf(msg)
 
 	if ptr.Kind() != reflect.Ptr {
-		panic("msg must be a pointer")
+		panic(fmt.Sprintf("msg must be a pointer to a struct, got %T", msg))
 	}
 
 	st := ptr.Elem()
+
+	if st.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("msg must be a pointer to a struct, got %T", msg))
+	}
+
 	val := reflect.ValueOf(msg).Elem()
 
 	for i := 0; i < st.NumField(); i++ {
@@ -334,7 +339,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 					Phase: mboxMsg.phase,
 					Body:  mboxMsg.body,
 				}
-				sendMsg(&msg)
+				sendMsg(msg)
 			}
 
 			go func() {
