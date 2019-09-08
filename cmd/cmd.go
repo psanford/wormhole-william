@@ -15,11 +15,12 @@ var rootCmd = &cobra.Command{
 }
 
 var relayURL string
+var verify bool
 
 func Execute() error {
 	rootCmd.PersistentFlags().StringVar(&relayURL, "relay-url", "", "rendezvous relay to use")
 
-	rootCmd.AddCommand(&recvCommand)
-	rootCmd.AddCommand(&sendCommand)
+	rootCmd.AddCommand(recvCommand())
+	rootCmd.AddCommand(sendCommand())
 	return rootCmd.Execute()
 }

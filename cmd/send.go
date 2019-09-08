@@ -14,33 +14,68 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var sendCommand = cobra.Command{
-	Use:   "send [WHAT]",
-	Short: "Send a text message, file, or directory...",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			sendText()
-		} else if len(args) > 1 {
-			bail("Too many arguments")
-		}
+func sendCommand() *cobra.Command {
+	cmd := cobra.Command{
+		Use:   "send [WHAT]",
+		Short: "Send a text message, file, or directory...",
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) == 0 {
+				sendText()
+				return
+			} else if len(args) > 1 {
+				bail("Too many arguments")
+			}
 
-		stat, err := os.Stat(args[0])
-		if err != nil {
-			bail("Failed to read %s: %s", args[0], err)
-		}
+			stat, err := os.Stat(args[0])
+			if err != nil {
+				bail("Failed to read %s: %s", args[0], err)
+			}
 
-		if stat.IsDir() {
-			sendDir(args[0])
-		} else {
-			sendFile(args[0])
-		}
-	},
+			if stat.IsDir() {
+				sendDir(args[0])
+				return
+			} else {
+				sendFile(args[0])
+				return
+			}
+		},
+	}
+
+	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
+
+	return &cmd
 }
 
 func newClient() wormhole.Client {
-	return wormhole.Client{
+	c := wormhole.Client{
 		RendezvousURL: relayURL,
 	}
+
+	if verify {
+		c.VerifierOk = func(code string) bool {
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Printf("Verifier %s. ok? (yes/no): ", code)
+
+			yn, _ := reader.ReadString('\n')
+			yn = strings.TrimSpace(yn)
+
+			return yn == "yes"
+		}
+	}
+	return c
+}
+
+func printInstructions(code string) {
+	mwCmd := "wormhole receive"
+	wwCmd := "wormhole-william recv"
+
+	if verify {
+		mwCmd = mwCmd + " --verify"
+		wwCmd = wwCmd + " --verify"
+	}
+
+	fmt.Printf("On the other computer, please run: %s (or %s)\n", mwCmd, wwCmd)
+	fmt.Printf("Wormhole code is: %s\n", code)
 }
 
 func sendFile(filename string) {
@@ -57,8 +92,7 @@ func sendFile(filename string) {
 		bail("Error sending message: %s", err)
 	}
 
-	fmt.Println("On the other computer, please run: wormhole receive")
-	fmt.Printf("Wormhole code is: %s\n", code)
+	printInstructions(code)
 
 	s := <-status
 
@@ -115,8 +149,7 @@ func sendDir(dirpath string) {
 		log.Fatal(err)
 	}
 
-	fmt.Println("On the other computer, please run: wormhole receive")
-	fmt.Printf("Wormhole code is: %s\n", code)
+	printInstructions(code)
 
 	s := <-status
 
@@ -134,7 +167,7 @@ func sendText() {
 	fmt.Print("Text to send: ")
 	msg, _ := reader.ReadString('\n')
 
-	msg = msg[:len(msg)-1]
+	msg = strings.TrimSpace(msg)
 
 	ctx := context.Background()
 
@@ -142,8 +175,8 @@ func sendText() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("On the other computer, please run: wormhole receive (or wormhole-william recv)")
-	fmt.Printf("Wormhole code is: %s\n", code)
+
+	printInstructions(code)
 
 	s := <-status
 
