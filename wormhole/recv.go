@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -66,6 +67,25 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	_, err = clientProto.ReadVersion()
 	if err != nil {
 		return nil, err
+	}
+
+	if c.VerifierOk != nil {
+		verifier, err := clientProto.Verifier()
+		if err != nil {
+			return nil, err
+		}
+
+		if ok := c.VerifierOk(hex.EncodeToString(verifier)); !ok {
+			errMsg := "sender rejected verification check, abandoned transfer"
+			writeErr := clientProto.WriteAppData(ctx, &genericMessage{
+				Error: &errMsg,
+			})
+			if writeErr != nil {
+				return nil, writeErr
+			}
+
+			return nil, errors.New(errMsg)
+		}
 	}
 
 	collector, err := clientProto.Collect(collectOffer, collectTransit)

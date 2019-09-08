@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,6 +16,11 @@ import (
 
 	"github.com/psanford/wormhole-william/rendezvous/rendezvousservertest"
 )
+
+type verifierResult struct {
+	clientID string
+	code     string
+}
 
 func TestWormholeSendRecvText(t *testing.T) {
 	ctx := context.Background()
@@ -27,11 +33,21 @@ func TestWormholeSendRecvText(t *testing.T) {
 	// disable transit relay
 	DefaultTransitRelayAddress = ""
 
+	var c0Verifier string
 	var c0 Client
 	c0.RendezvousURL = url
+	c0.VerifierOk = func(code string) bool {
+		c0Verifier = code
+		return true
+	}
 
+	var c1Verifier string
 	var c1 Client
 	c1.RendezvousURL = url
+	c1.VerifierOk = func(code string) bool {
+		c1Verifier = code
+		return true
+	}
 
 	secretText := "Hialeah-deviltry"
 	code, statusChan, err := c0.SendText(ctx, secretText)
@@ -76,6 +92,53 @@ func TestWormholeSendRecvText(t *testing.T) {
 	if !status.OK || status.Error != nil {
 		t.Fatalf("Send side expected OK status but got: %+v", status)
 	}
+
+	if c0Verifier != c1Verifier {
+		t.Fatalf("Expected verifiers to match but were different")
+	}
+}
+
+func TestVerifierAbort(t *testing.T) {
+	ctx := context.Background()
+
+	rs := rendezvousservertest.NewServer()
+	defer rs.Close()
+
+	url := rs.WebSocketURL()
+
+	// disable transit relay
+	DefaultTransitRelayAddress = ""
+
+	var c0 Client
+	c0.RendezvousURL = url
+	c0.VerifierOk = func(code string) bool {
+		return false
+	}
+
+	var c1 Client
+	c1.RendezvousURL = url
+	c1.VerifierOk = func(code string) bool {
+		return true
+	}
+
+	secretText := "minced-incalculably"
+	code, statusChan, err := c0.SendText(ctx, secretText)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// recv with correct code
+	_, err = c1.Receive(ctx, code)
+	expectErr := errors.New("TransferError: sender rejected verification check, abandoned transfer")
+	if err.Error() != expectErr.Error() {
+		t.Fatalf("Expected recv err %q got %q", expectErr, err)
+	}
+
+	status := <-statusChan
+	expectErr = errors.New("sender rejected verification check, abandoned transfer")
+	if status.Error.Error() != expectErr.Error() {
+		t.Fatalf("Send side expected %q error but got: %q", expectErr, status.Error)
+	}
 }
 
 func TestWormholeFileTransportSendRecvDirect(t *testing.T) {
@@ -89,11 +152,21 @@ func TestWormholeFileTransportSendRecvDirect(t *testing.T) {
 	// disable transit relay for this test
 	DefaultTransitRelayAddress = ""
 
+	var c0Verifier string
 	var c0 Client
 	c0.RendezvousURL = url
+	c0.VerifierOk = func(code string) bool {
+		c0Verifier = code
+		return true
+	}
 
+	var c1Verifier string
 	var c1 Client
 	c1.RendezvousURL = url
+	c1.VerifierOk = func(code string) bool {
+		c1Verifier = code
+		return true
+	}
 
 	fileContent := make([]byte, 1<<16)
 	for i := 0; i < len(fileContent); i++ {
@@ -125,6 +198,15 @@ func TestWormholeFileTransportSendRecvDirect(t *testing.T) {
 	if !result.OK {
 		t.Fatalf("Expected ok result but got: %+v", result)
 	}
+
+	if c0Verifier == "" || c1Verifier == "" {
+		t.Fatalf("Failed to get verifier code c0=%q c1=%q", c0Verifier, c1Verifier)
+	}
+
+	if c0Verifier != c1Verifier {
+		t.Fatalf("Expected verifiers to match but were different")
+	}
+
 }
 
 func TestWormholeFileTransportSendRecvViaRelayServer(t *testing.T) {
@@ -179,6 +261,7 @@ func TestWormholeFileTransportSendRecvViaRelayServer(t *testing.T) {
 	if !result.OK {
 		t.Fatalf("Expected ok result but got: %+v", result)
 	}
+
 }
 
 func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
@@ -192,11 +275,21 @@ func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
 	// disable transit relay for this test
 	DefaultTransitRelayAddress = ""
 
+	var c0Verifier string
 	var c0 Client
 	c0.RendezvousURL = url
+	c0.VerifierOk = func(code string) bool {
+		c0Verifier = code
+		return true
+	}
 
+	var c1Verifier string
 	var c1 Client
 	c1.RendezvousURL = url
+	c1.VerifierOk = func(code string) bool {
+		c1Verifier = code
+		return true
+	}
 
 	personalizeContent := make([]byte, 1<<16)
 	for i := 0; i < len(personalizeContent); i++ {
@@ -270,6 +363,15 @@ func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
 	if !result.OK {
 		t.Fatalf("Expected ok result but got: %+v", result)
 	}
+
+	if c0Verifier == "" || c1Verifier == "" {
+		t.Fatalf("Failed to get verifier code c0=%q c1=%q", c0Verifier, c1Verifier)
+	}
+
+	if c0Verifier != c1Verifier {
+		t.Fatalf("Expected verifiers to match but were different")
+	}
+
 }
 
 type testRelayServer struct {

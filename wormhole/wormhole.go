@@ -41,6 +41,16 @@ type Client struct {
 	// when generating a passprase. Any value less than 2 will
 	// default to 2.
 	PassPhraseComponentLength int
+
+	// VerifierOk specifies an optional hook to be called before
+	// transmitting/receiving the encrypted payload.
+	//
+	// If VerifierOk is non-nil it will be called after the PAKE
+	// hand-shake has succeeded passing in the verifier code. Callers
+	// can then prompt the user to confirm the code matches via an out
+	// of band mechanism before proceeding with the file transmission.
+	// If VerifierOk returns false the transmission will be aborted.
+	VerifierOk func(verifier string) bool
 }
 
 var (
@@ -183,6 +193,19 @@ func deriveTransitKey(key []byte, appID string) []byte {
 	return out
 }
 
+func deriveVerifier(key []byte) []byte {
+	purpose := "wormhole:verifier"
+
+	r := hkdf.New(sha256.New, key, nil, []byte(purpose))
+	out := make([]byte, secreboxKeySize)
+
+	_, err := io.ReadFull(r, out)
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
 type pakeMsg struct {
 	Body string `json:"pake_v1"`
 }
@@ -215,6 +238,7 @@ type genericMessage struct {
 	Answer      *answerMsg      `json:"answer,omitempty"`
 	Transit     *transitMsg     `json:"transit,omitempty"`
 	AppVersions *appVersionsMsg `json:"app_versions,omitempty"`
+	Error       *string         `json:"error,omitempty"`
 }
 
 type appVersionsMsg struct {
@@ -403,6 +427,9 @@ func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) {
 			} else if msg.Answer != nil {
 				t = collectAnswer
 				resultMsg = msg.Answer
+			} else if msg.Error != nil {
+				errorResult(fmt.Errorf("TransferError: %s", *msg.Error))
+				return
 			} else {
 				continue
 			}
@@ -477,6 +504,14 @@ func (cc *clientProtocol) ReadPake() error {
 	cc.sharedKey = sharedKey
 
 	return nil
+}
+
+func (cc *clientProtocol) Verifier() ([]byte, error) {
+	if cc.sharedKey == nil {
+		return nil, errors.New("Shared key not established yet")
+	}
+
+	return deriveVerifier(cc.sharedKey), nil
 }
 
 func (cc *clientProtocol) WriteVersion(ctx context.Context) error {

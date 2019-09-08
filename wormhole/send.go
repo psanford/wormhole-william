@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -88,6 +89,28 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 		if err != nil {
 			sendErr(err)
 			return
+		}
+
+		if c.VerifierOk != nil {
+			verifier, err := clientProto.Verifier()
+			if err != nil {
+				sendErr(err)
+				return
+			}
+
+			if ok := c.VerifierOk(hex.EncodeToString(verifier)); !ok {
+				errMsg := "sender rejected verification check, abandoned transfer"
+				writeErr := clientProto.WriteAppData(ctx, &genericMessage{
+					Error: &errMsg,
+				})
+				if writeErr != nil {
+					sendErr(writeErr)
+					return
+				}
+
+				sendErr(errors.New(errMsg))
+				return
+			}
 		}
 
 		offer := &genericMessage{
@@ -206,6 +229,27 @@ func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker)
 		if err != nil {
 			sendErr(err)
 			return
+		}
+		if c.VerifierOk != nil {
+			verifier, err := clientProto.Verifier()
+			if err != nil {
+				sendErr(err)
+				return
+			}
+
+			if ok := c.VerifierOk(hex.EncodeToString(verifier)); !ok {
+				errMsg := "sender rejected verification check, abandoned transfer"
+				writeErr := clientProto.WriteAppData(ctx, &genericMessage{
+					Error: &errMsg,
+				})
+				if writeErr != nil {
+					sendErr(writeErr)
+					return
+				}
+
+				sendErr(errors.New(errMsg))
+				return
+			}
 		}
 
 		transitKey := deriveTransitKey(clientProto.sharedKey, appID)
@@ -422,6 +466,28 @@ func (c *Client) SendDirectory(ctx context.Context, directoryName string, entrie
 		if err != nil {
 			sendErr(err)
 			return
+		}
+
+		if c.VerifierOk != nil {
+			verifier, err := clientProto.Verifier()
+			if err != nil {
+				sendErr(err)
+				return
+			}
+
+			if ok := c.VerifierOk(hex.EncodeToString(verifier)); !ok {
+				errMsg := "sender rejected verification check, abandoned transfer"
+				writeErr := clientProto.WriteAppData(ctx, &genericMessage{
+					Error: &errMsg,
+				})
+				if writeErr != nil {
+					sendErr(writeErr)
+					return
+				}
+
+				sendErr(errors.New(errMsg))
+				return
+			}
 		}
 
 		transitKey := deriveTransitKey(clientProto.sharedKey, appID)

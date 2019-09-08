@@ -411,6 +411,10 @@ func (c *Client) Close(ctx context.Context, mood Mood) error {
 		mood = Happy
 	}
 
+	if c.wsClient == nil {
+		return errors.New("Close called on non-open rendezvous connection")
+	}
+
 	defer func() {
 		if c.wsClient != nil {
 			c.wsClient.Close()
