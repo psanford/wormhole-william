@@ -37,13 +37,19 @@ var sendCommand = cobra.Command{
 	},
 }
 
+func newClient() wormhole.Client {
+	return wormhole.Client{
+		RendezvousURL: relayURL,
+	}
+}
+
 func sendFile(filename string) {
 	f, err := os.Open(filename)
 	if err != nil {
 		bail("Failed to open %s: %s", filename, err)
 	}
 
-	var c wormhole.Client
+	c := newClient()
 
 	ctx := context.Background()
 	code, status, err := c.SendFile(ctx, filename, f)
@@ -101,7 +107,7 @@ func sendDir(dirpath string) {
 		return nil
 	})
 
-	var c wormhole.Client
+	c := newClient()
 
 	ctx := context.Background()
 	code, status, err := c.SendDirectory(ctx, dirname, entries)
@@ -122,7 +128,7 @@ func sendDir(dirpath string) {
 }
 
 func sendText() {
-	var c wormhole.Client
+	c := newClient()
 
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Text to send: ")

@@ -24,8 +24,7 @@ var recvCommand = cobra.Command{
 		fmt.Printf("Recv using code %s\n", args[0])
 
 		var (
-			c wormhole.Client
-
+			c    = newClient()
 			code = args[0]
 			ctx  = context.Background()
 		)
