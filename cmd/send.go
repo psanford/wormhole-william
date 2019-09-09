@@ -14,6 +14,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	codeLen int
+)
+
 func sendCommand() *cobra.Command {
 	cmd := cobra.Command{
 		Use:   "send [WHAT]",
@@ -42,13 +46,15 @@ func sendCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
+	cmd.Flags().IntVarP(&codeLen, "code-length", "c", 0, "length of code (in bytes/words)")
 
 	return &cmd
 }
 
 func newClient() wormhole.Client {
 	c := wormhole.Client{
-		RendezvousURL: relayURL,
+		RendezvousURL:             relayURL,
+		PassPhraseComponentLength: codeLen,
 	}
 
 	if verify {
@@ -62,6 +68,7 @@ func newClient() wormhole.Client {
 			return yn == "yes"
 		}
 	}
+
 	return c
 }
 
