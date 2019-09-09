@@ -153,24 +153,16 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 	return pwStr, ch, nil
 }
 
-// SendFile sends a single file via the wormhole protocol. It returns a nameplate+passhrase code to give to the
-// receiver, a result channel that will be written to after the receiver attempts to read (either successfully or not)
-// and an error if one occured.
-func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker) (string, chan SendResult, error) {
+func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Reader) (string, chan SendResult, error) {
 	if err := c.validateRelayAddr(); err != nil {
 		return "", nil, fmt.Errorf("Invalid TransitRelayAddress: %s", err)
-	}
-
-	size, err := readSeekerSize(r)
-	if err != nil {
-		return "", nil, err
 	}
 
 	sideID := crypto.RandSideID()
 	appID := c.appID()
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
 
-	_, err = rc.Connect(ctx)
+	_, err := rc.Connect(ctx)
 	if err != nil {
 		return "", nil, err
 	}
@@ -281,12 +273,7 @@ func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker)
 		}
 
 		offer := &genericMessage{
-			Offer: &offerMsg{
-				File: &offerFile{
-					FileName: fileName,
-					FileSize: size,
-				},
-			},
+			Offer: offer,
 		}
 		err = clientProto.WriteAppData(ctx, offer)
 		if err != nil {
@@ -378,6 +365,29 @@ func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker)
 	return pwStr, ch, nil
 }
 
+// SendFile sends a single file via the wormhole protocol. It returns a nameplate+passhrase code to give to the
+// receiver, a result channel that will be written to after the receiver attempts to read (either successfully or not)
+// and an error if one occured.
+func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker) (string, chan SendResult, error) {
+	if err := c.validateRelayAddr(); err != nil {
+		return "", nil, fmt.Errorf("Invalid TransitRelayAddress: %s", err)
+	}
+
+	size, err := readSeekerSize(r)
+	if err != nil {
+		return "", nil, err
+	}
+
+	offer := &offerMsg{
+		File: &offerFile{
+			FileName: fileName,
+			FileSize: size,
+		},
+	}
+
+	return c.sendFileDirectory(ctx, offer, r)
+}
+
 // A DirectoryEntry represents a single file to be sent by SendDirectory
 type DirectoryEntry struct {
 	// Path is the relative path to the file from the top level directory.
@@ -402,222 +412,30 @@ func (c *Client) SendDirectory(ctx context.Context, directoryName string, entrie
 		return "", nil, err
 	}
 
-	sideID := crypto.RandSideID()
-	appID := c.appID()
-	rc := rendezvous.NewClient(c.url(), sideID, appID)
+	offer := &offerMsg{
+		Directory: &offerDirectory{
+			Dirname:  directoryName,
+			Mode:     "zipfile/deflated",
+			NumBytes: zipInfo.numBytes,
+			NumFiles: zipInfo.numFiles,
+			ZipSize:  zipInfo.zipSize,
+		},
+	}
 
-	_, err = rc.Connect(ctx)
+	code, resultCh, err := c.sendFileDirectory(ctx, offer, zipInfo.file)
 	if err != nil {
 		return "", nil, err
 	}
 
-	nameplate, err := rc.CreateMailbox(ctx)
-	if err != nil {
-		return "", nil, err
-	}
-
-	pwStr := nameplate + "-" + wordlist.ChooseWords(c.wordCount())
-
-	clientProto := newClientProtocol(ctx, rc, sideID, appID)
-
-	ch := make(chan SendResult, 1)
+	// intercept result chan to close our tmpfile after we are done with it
+	retCh := make(chan SendResult, 1)
 	go func() {
-		var returnErr error
-		defer func() {
-			mood := rendezvous.Errory
-			if returnErr == nil {
-				mood = rendezvous.Happy
-			} else if returnErr == errDecryptFailed {
-				mood = rendezvous.Scary
-			}
-
-			rc.Close(ctx, mood)
-		}()
-		defer zipInfo.file.Close()
-
-		sendErr := func(err error) {
-			ch <- SendResult{
-				Error: err,
-			}
-			returnErr = err
-			close(ch)
-			return
-		}
-
-		err = clientProto.WritePake(ctx, pwStr)
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		err = clientProto.ReadPake()
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		err = clientProto.WriteVersion(ctx)
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		_, err = clientProto.ReadVersion()
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		if c.VerifierOk != nil {
-			verifier, err := clientProto.Verifier()
-			if err != nil {
-				sendErr(err)
-				return
-			}
-
-			if ok := c.VerifierOk(hex.EncodeToString(verifier)); !ok {
-				errMsg := "sender rejected verification check, abandoned transfer"
-				writeErr := clientProto.WriteAppData(ctx, &genericMessage{
-					Error: &errMsg,
-				})
-				if writeErr != nil {
-					sendErr(writeErr)
-					return
-				}
-
-				sendErr(errors.New(errMsg))
-				return
-			}
-		}
-
-		transitKey := deriveTransitKey(clientProto.sharedKey, appID)
-		transport := newFileTransport(transitKey, appID, c.relayAddr())
-		err = transport.listen()
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		err = transport.listenRelay()
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		transitMsg, err := transport.makeTransitMsg()
-		if err != nil {
-			sendErr(fmt.Errorf("Make transit msg error: %s", err))
-			return
-		}
-
-		err = clientProto.WriteAppData(ctx, &genericMessage{
-			Transit: transitMsg,
-		})
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		offer := &genericMessage{
-			Offer: &offerMsg{
-				Directory: &offerDirectory{
-					Dirname:  directoryName,
-					Mode:     "zipfile/deflated",
-					NumBytes: zipInfo.numBytes,
-					NumFiles: zipInfo.numFiles,
-					ZipSize:  zipInfo.zipSize,
-				},
-			},
-		}
-		err = clientProto.WriteAppData(ctx, offer)
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		collector, err := clientProto.Collect()
-		if err != nil {
-			sendErr(err)
-			return
-		}
-		defer collector.close()
-
-		var answer answerMsg
-		err = collector.waitFor(&answer)
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		if answer.FileAck != "ok" {
-			sendErr(fmt.Errorf("Unexpected answer"))
-			return
-		}
-
-		conn, err := transport.acceptConnection(ctx)
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		cryptor := newTransportCryptor(conn, transitKey, "transit_record_receiver_key", "transit_record_sender_key")
-
-		recordSize := (1 << 14)
-		// chunk
-		recordSlice := make([]byte, recordSize-secretbox.Overhead)
-		hasher := sha256.New()
-
-		for {
-			n, err := zipInfo.file.Read(recordSlice)
-			if n > 0 {
-				hasher.Write(recordSlice[:n])
-				err = cryptor.writeRecord(recordSlice[:n])
-				if err != nil {
-					sendErr(err)
-					return
-				}
-			}
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				sendErr(err)
-				return
-			}
-		}
-
-		respRec, err := cryptor.readRecord()
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		var ack fileTransportAck
-		err = json.Unmarshal(respRec, &ack)
-		if err != nil {
-			sendErr(err)
-			return
-		}
-
-		if ack.Ack != "ok" {
-			sendErr(errors.New("Got non ok final ack from receiver"))
-			return
-		}
-
-		shaSum := fmt.Sprintf("%x", hasher.Sum(nil))
-		if strings.ToLower(ack.SHA256) != shaSum {
-			sendErr(fmt.Errorf("Receiver sha256 mismatch %s vs %s", ack.SHA256, shaSum))
-			return
-		}
-
-		ch <- SendResult{
-			OK: true,
-		}
-		close(ch)
-		return
+		r := <-resultCh
+		zipInfo.file.Close()
+		retCh <- r
 	}()
 
-	return pwStr, ch, nil
-
+	return code, retCh, err
 }
 
 type zipResult struct {
