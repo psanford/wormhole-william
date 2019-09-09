@@ -181,6 +181,14 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		return "", nil, fmt.Errorf("Invalid TransitRelayAddress: %s", err)
 	}
 
+	var options sendOptions
+	for _, opt := range opts {
+		err := opt.setOption(&options)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
 	sideID := crypto.RandSideID()
 	appID := c.appID()
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
@@ -190,12 +198,26 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		return "", nil, err
 	}
 
-	nameplate, err := rc.CreateMailbox(ctx)
-	if err != nil {
-		return "", nil, err
-	}
+	var pwStr string
+	if options.code == "" {
+		nameplate, err := rc.CreateMailbox(ctx)
+		if err != nil {
+			return "", nil, err
+		}
 
-	pwStr := nameplate + "-" + wordlist.ChooseWords(c.wordCount())
+		pwStr = nameplate + "-" + wordlist.ChooseWords(c.wordCount())
+	} else {
+		pwStr = options.code
+		nameplate, err := nameplaceFromCode(pwStr)
+		if err != nil {
+			return "", nil, err
+		}
+
+		err = rc.AttachMailbox(ctx, nameplate)
+		if err != nil {
+			return "", nil, err
+		}
+	}
 
 	clientProto := newClientProtocol(ctx, rc, sideID, appID)
 
@@ -408,7 +430,7 @@ func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker,
 		},
 	}
 
-	return c.sendFileDirectory(ctx, offer, r)
+	return c.sendFileDirectory(ctx, offer, r, opts...)
 }
 
 // A DirectoryEntry represents a single file to be sent by SendDirectory
@@ -445,7 +467,7 @@ func (c *Client) SendDirectory(ctx context.Context, directoryName string, entrie
 		},
 	}
 
-	code, resultCh, err := c.sendFileDirectory(ctx, offer, zipInfo.file)
+	code, resultCh, err := c.sendFileDirectory(ctx, offer, zipInfo.file, opts...)
 	if err != nil {
 		return "", nil, err
 	}
@@ -592,6 +614,9 @@ func (o sendCodeOption) setOption(opts *sendOptions) error {
 }
 
 func validateCode(code string) error {
+	if code == "" {
+		return nil
+	}
 	_, err := nameplaceFromCode(code)
 	if err != nil {
 		return err
