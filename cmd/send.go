@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	codeLen int
+	codeLen  int
+	codeFlag string
 )
 
 func sendCommand() *cobra.Command {
@@ -47,6 +48,7 @@ func sendCommand() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
 	cmd.Flags().IntVarP(&codeLen, "code-length", "c", 0, "length of code (in bytes/words)")
+	cmd.Flags().StringVar(&codeFlag, "code", "", "human-generated code phrase")
 
 	return &cmd
 }
@@ -94,7 +96,7 @@ func sendFile(filename string) {
 	c := newClient()
 
 	ctx := context.Background()
-	code, status, err := c.SendFile(ctx, filename, f)
+	code, status, err := c.SendFile(ctx, filename, f, wormhole.WithCode(codeFlag))
 	if err != nil {
 		bail("Error sending message: %s", err)
 	}
@@ -151,7 +153,7 @@ func sendDir(dirpath string) {
 	c := newClient()
 
 	ctx := context.Background()
-	code, status, err := c.SendDirectory(ctx, dirname, entries)
+	code, status, err := c.SendDirectory(ctx, dirname, entries, wormhole.WithCode(codeFlag))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -178,7 +180,7 @@ func sendText() {
 
 	ctx := context.Background()
 
-	code, status, err := c.SendText(ctx, msg)
+	code, status, err := c.SendText(ctx, msg, wormhole.WithCode(codeFlag))
 	if err != nil {
 		log.Fatal(err)
 	}

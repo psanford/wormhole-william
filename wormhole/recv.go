@@ -11,7 +11,6 @@ import (
 	"hash"
 	"io"
 	"log"
-	"strings"
 
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
@@ -40,7 +39,10 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	if err != nil {
 		return nil, err
 	}
-	nameplate := strings.SplitN(code, "-", 2)[0]
+	nameplate, err := nameplaceFromCode(code)
+	if err != nil {
+		return nil, err
+	}
 
 	err = rc.AttachMailbox(ctx, nameplate)
 	if err != nil {

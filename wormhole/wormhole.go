@@ -12,6 +12,7 @@ import (
 	"net"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/psanford/wormhole-william/internal/crypto"
@@ -622,4 +623,17 @@ func (cc *clientProtocol) Collect(msgTypes ...collectType) (*msgCollector, error
 
 	go collector.collect(cc.ch)
 	return collector, nil
+}
+
+var nonNumericNameplace = errors.New("Non-numeric nameplate")
+
+func nameplaceFromCode(code string) (string, error) {
+	nameplate := strings.SplitN(code, "-", 2)[0]
+
+	_, err := strconv.Atoi(nameplate)
+	if err != nil {
+		return "", nonNumericNameplace
+	}
+
+	return nameplate, nil
 }

@@ -25,9 +25,18 @@ import (
 // It returns the nameplate+passphrase code to give to the reciever, a result chan
 // that gets written to once the reciever actually attempts to read the message
 // (either successfully or not).
-func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendResult, error) {
+func (c *Client) SendText(ctx context.Context, msg string, opts ...SendOption) (string, chan SendResult, error) {
 	sideID := crypto.RandSideID()
 	appID := c.appID()
+
+	var options sendOptions
+	for _, opt := range opts {
+		err := opt.setOption(&options)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
 	rc := rendezvous.NewClient(c.url(), sideID, appID)
 
 	_, err := rc.Connect(ctx)
@@ -35,12 +44,26 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 		return "", nil, err
 	}
 
-	nameplate, err := rc.CreateMailbox(ctx)
-	if err != nil {
-		return "", nil, err
-	}
+	var pwStr string
+	if options.code == "" {
+		nameplate, err := rc.CreateMailbox(ctx)
+		if err != nil {
+			return "", nil, err
+		}
 
-	pwStr := nameplate + "-" + wordlist.ChooseWords(c.wordCount())
+		pwStr = nameplate + "-" + wordlist.ChooseWords(c.wordCount())
+	} else {
+		pwStr = options.code
+		nameplate, err := nameplaceFromCode(pwStr)
+		if err != nil {
+			return "", nil, err
+		}
+
+		err = rc.AttachMailbox(ctx, nameplate)
+		if err != nil {
+			return "", nil, err
+		}
+	}
 
 	clientProto := newClientProtocol(ctx, rc, sideID, appID)
 
@@ -153,7 +176,7 @@ func (c *Client) SendText(ctx context.Context, msg string) (string, chan SendRes
 	return pwStr, ch, nil
 }
 
-func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Reader) (string, chan SendResult, error) {
+func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Reader, opts ...SendOption) (string, chan SendResult, error) {
 	if err := c.validateRelayAddr(); err != nil {
 		return "", nil, fmt.Errorf("Invalid TransitRelayAddress: %s", err)
 	}
@@ -368,7 +391,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 // SendFile sends a single file via the wormhole protocol. It returns a nameplate+passhrase code to give to the
 // receiver, a result channel that will be written to after the receiver attempts to read (either successfully or not)
 // and an error if one occured.
-func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker) (string, chan SendResult, error) {
+func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker, opts ...SendOption) (string, chan SendResult, error) {
 	if err := c.validateRelayAddr(); err != nil {
 		return "", nil, fmt.Errorf("Invalid TransitRelayAddress: %s", err)
 	}
@@ -406,7 +429,7 @@ type DirectoryEntry struct {
 // It returns a nameplate+passhrase code to give to the
 // receiver, a result channel that will be written to after the receiver attempts to read (either successfully or not)
 // and an error if one occured.
-func (c *Client) SendDirectory(ctx context.Context, directoryName string, entries []DirectoryEntry) (string, chan SendResult, error) {
+func (c *Client) SendDirectory(ctx context.Context, directoryName string, entries []DirectoryEntry, opts ...SendOption) (string, chan SendResult, error) {
 	zipInfo, err := makeTmpZip(directoryName, entries)
 	if err != nil {
 		return "", nil, err
@@ -545,4 +568,42 @@ func readSeekerSize(r io.ReadSeeker) (int64, error) {
 
 	return size, nil
 
+}
+
+type sendOptions struct {
+	code string
+}
+
+type SendOption interface {
+	setOption(*sendOptions) error
+}
+
+type sendCodeOption struct {
+	code string
+}
+
+func (o sendCodeOption) setOption(opts *sendOptions) error {
+	if err := validateCode(o.code); err != nil {
+		return err
+	}
+
+	opts.code = o.code
+	return nil
+}
+
+func validateCode(code string) error {
+	_, err := nameplaceFromCode(code)
+	if err != nil {
+		return err
+	}
+	if strings.Contains(code, " ") {
+		return errors.New("Code must not contain spaces")
+	}
+	return nil
+}
+
+// WithCode returns a SendOption to use a specific nameplate+code
+// instead of generating one dynamically.
+func WithCode(code string) SendOption {
+	return sendCodeOption{code: code}
 }
