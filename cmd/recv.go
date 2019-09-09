@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cheggaaa/pb/v3"
 	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +26,7 @@ func recvCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
+	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "supress progress-bar display")
 
 	return &cmd
 }
@@ -90,11 +92,15 @@ func recvAction(cmd *cobra.Command, args []string) {
 					bail("Failed to create tempfile: %s", err)
 				}
 
-				_, err = io.Copy(f, msg)
+				proxyReader := pbProxyReader(msg, msg.TransferBytes)
+
+				_, err = io.Copy(f, proxyReader)
 				if err != nil {
 					os.Remove(f.Name())
 					bail("Receive file error: %s", err)
 				}
+
+				proxyReader.Close()
 
 				tmpName := f.Name()
 				f.Close()
@@ -158,7 +164,9 @@ func recvAction(cmd *cobra.Command, args []string) {
 				defer tmpFile.Close()
 				defer os.Remove(tmpFile.Name())
 
-				n, err := io.Copy(tmpFile, msg)
+				proxyReader := pbProxyReader(msg, msg.TransferBytes)
+
+				n, err := io.Copy(tmpFile, proxyReader)
 				if err != nil {
 					os.Remove(tmpFile.Name())
 					bail("Receive file error: %s", err)
@@ -208,6 +216,9 @@ func recvAction(cmd *cobra.Command, args []string) {
 
 					rc.Close()
 				}
+
+				proxyReader.Close()
+
 			}
 		}
 	}
@@ -236,4 +247,27 @@ func formatBytes(b int) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "kMGTPE"[exp])
+}
+
+type proxyReadCloser struct {
+	*pb.Reader
+	bar *pb.ProgressBar
+}
+
+func (p *proxyReadCloser) Close() error {
+	p.bar.Finish()
+	return nil
+}
+
+func pbProxyReader(r io.Reader, size int) io.ReadCloser {
+	if hideProgressBar {
+		return ioutil.NopCloser(r)
+	} else {
+		progressBar := pb.Full.Start(size)
+		proxyReader := progressBar.NewProxyReader(r)
+		return &proxyReadCloser{
+			Reader: proxyReader,
+			bar:    progressBar,
+		}
+	}
 }

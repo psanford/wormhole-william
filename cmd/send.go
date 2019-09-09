@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cheggaaa/pb/v3"
 	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/spf13/cobra"
 )
@@ -49,6 +50,7 @@ func sendCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
 	cmd.Flags().IntVarP(&codeLen, "code-length", "c", 0, "length of code (in bytes/words)")
 	cmd.Flags().StringVar(&codeFlag, "code", "", "human-generated code phrase")
+	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "supress progress-bar display")
 
 	return &cmd
 }
@@ -96,7 +98,28 @@ func sendFile(filename string) {
 	c := newClient()
 
 	ctx := context.Background()
-	code, status, err := c.SendFile(ctx, filename, f, wormhole.WithCode(codeFlag))
+
+	var bar *pb.ProgressBar
+
+	args := []wormhole.SendOption{
+		wormhole.WithCode(codeFlag),
+	}
+
+	if !hideProgressBar {
+		args = append(args, wormhole.WithProgress(func(sentBytes int64, totalBytes int64) {
+			if bar == nil {
+				bar = pb.Full.Start64(totalBytes)
+				bar.Set(pb.Bytes, true)
+			}
+			bar.SetCurrent(sentBytes)
+
+			if sentBytes == totalBytes {
+				bar.Finish()
+			}
+		}))
+	}
+
+	code, status, err := c.SendFile(ctx, filepath.Base(filename), f, args...)
 	if err != nil {
 		bail("Error sending message: %s", err)
 	}

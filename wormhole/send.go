@@ -317,10 +317,10 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			return
 		}
 
-		offer := &genericMessage{
+		gmOffer := &genericMessage{
 			Offer: offer,
 		}
-		err = clientProto.WriteAppData(ctx, offer)
+		err = clientProto.WriteAppData(ctx, gmOffer)
 		if err != nil {
 			sendErr(err)
 			return
@@ -358,6 +358,14 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		recordSlice := make([]byte, recordSize-secretbox.Overhead)
 		hasher := sha256.New()
 
+		var progress int64
+		var totalSize int64
+		if offer.File != nil {
+			totalSize = offer.File.FileSize
+		} else if offer.Directory != nil {
+			totalSize = offer.Directory.ZipSize
+		}
+
 		for {
 			n, err := r.Read(recordSlice)
 			if n > 0 {
@@ -366,6 +374,10 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 				if err != nil {
 					sendErr(err)
 					return
+				}
+				progress = progress + int64(n)
+				if options.progressFunc != nil {
+					options.progressFunc(progress, totalSize)
 				}
 			}
 			if err == io.EOF {
@@ -593,7 +605,8 @@ func readSeekerSize(r io.ReadSeeker) (int64, error) {
 }
 
 type sendOptions struct {
-	code string
+	code         string
+	progressFunc progressFunc
 }
 
 type SendOption interface {
@@ -631,4 +644,22 @@ func validateCode(code string) error {
 // instead of generating one dynamically.
 func WithCode(code string) SendOption {
 	return sendCodeOption{code: code}
+}
+
+type progressFunc func(sentBytes int64, totalBytes int64)
+
+type progressSendOption struct {
+	progressFunc progressFunc
+}
+
+func (o progressSendOption) setOption(opts *sendOptions) error {
+	opts.progressFunc = o.progressFunc
+	return nil
+}
+
+// WithProgress returns a SendOption to track the progress of
+// the data transfer. It takes a callback function that will
+// be called for each chunk of data successfully written.
+func WithProgress(f func(sentBytes int64, totalBytes int64)) SendOption {
+	return progressSendOption{f}
 }
