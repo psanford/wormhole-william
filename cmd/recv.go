@@ -19,10 +19,9 @@ import (
 
 func recvCommand() *cobra.Command {
 	cmd := cobra.Command{
-		Use:     "receive [code]",
+		Use:     "receive [OPTIONS] [CODE]...",
 		Aliases: []string{"recv"},
 		Short:   "Receive a text message, file, or directory...",
-		Args:    cobra.MinimumNArgs(1),
 		Run:     recvAction,
 	}
 
@@ -33,13 +32,26 @@ func recvCommand() *cobra.Command {
 }
 
 func recvAction(cmd *cobra.Command, args []string) {
-	fmt.Printf("Recv using code %s\n", args[0])
-
 	var (
+		code string
 		c    = newClient()
-		code = args[0]
 		ctx  = context.Background()
 	)
+
+	if len(args) > 0 {
+		code = args[0]
+	}
+
+	if code == "" {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Enter receive wormhole code: ")
+
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			errf("Error reading from stdin: %s\n", err)
+		}
+		code = strings.TrimSpace(line)
+	}
 
 	if verify {
 		c.VerifierOk = func(code string) bool {
