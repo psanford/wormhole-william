@@ -28,7 +28,9 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	defer func() {
 		mood := rendezvous.Errory
 		if returnErr == nil {
-			mood = rendezvous.Happy
+			// don't close our connection in this case
+			// wait until the user actually accepts the transfer
+			return
 		} else if returnErr == errDecryptFailed {
 			mood = rendezvous.Scary
 		}
@@ -116,6 +118,8 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 			return nil, err
 		}
 
+		rc.Close(ctx, rendezvous.Happy)
+
 		fr.Type = TransferText
 		fr.textReader = bytes.NewReader([]byte(*offer.Message))
 		return fr, nil
@@ -156,37 +160,81 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 		return nil, err
 	}
 
-	answer := &genericMessage{
-		Answer: &answerMsg{
-			FileAck: "ok",
-		},
-	}
+	reject := func() (initErr error) {
+		defer func() {
+			mood := rendezvous.Errory
+			if returnErr == nil {
+				mood = rendezvous.Happy
+			} else if returnErr == errDecryptFailed {
+				mood = rendezvous.Scary
+			}
+			rc.Close(ctx, mood)
+		}()
 
-	err = clientProto.WriteAppData(ctx, answer)
-	if err != nil {
-		return nil, err
-	}
-
-	conn, err := transport.connectDirect(&gotTransitMsg)
-	if err != nil {
-		return nil, err
-	}
-
-	if conn == nil {
-		conn, err = transport.connectViaRelay(&gotTransitMsg)
-		if err != nil {
-			return nil, err
+		var errStr = "transfer rejected"
+		answer := &genericMessage{
+			Error: &errStr,
 		}
+		ctx := context.Background()
+
+		err = clientProto.WriteAppData(ctx, answer)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
-	if conn == nil {
-		return nil, errors.New("Failed to establish connection")
+	// defer actually sending the "ok" message until
+	// the caller does a read on the IncomingMessage object.
+	acceptAndInitialize := func() (initErr error) {
+		defer func() {
+			mood := rendezvous.Errory
+			if returnErr == nil {
+				mood = rendezvous.Happy
+			} else if returnErr == errDecryptFailed {
+				mood = rendezvous.Scary
+			}
+			rc.Close(ctx, mood)
+		}()
+
+		answer := &genericMessage{
+			Answer: &answerMsg{
+				FileAck: "ok",
+			},
+		}
+		ctx := context.Background()
+
+		err = clientProto.WriteAppData(ctx, answer)
+		if err != nil {
+			return err
+		}
+
+		conn, err := transport.connectDirect(&gotTransitMsg)
+		if err != nil {
+			return err
+		}
+
+		if conn == nil {
+			conn, err = transport.connectViaRelay(&gotTransitMsg)
+			if err != nil {
+				return err
+			}
+		}
+
+		if conn == nil {
+			return errors.New("Failed to establish connection")
+		}
+
+		cryptor := newTransportCryptor(conn, transitKey, "transit_record_sender_key", "transit_record_receiver_key")
+
+		fr.cryptor = cryptor
+		fr.sha256 = sha256.New()
+		return nil
 	}
 
-	cryptor := newTransportCryptor(conn, transitKey, "transit_record_sender_key", "transit_record_receiver_key")
-
-	fr.cryptor = cryptor
-	fr.sha256 = sha256.New()
+	fr.initializeTransfer = acceptAndInitialize
+	fr.rejectTransfer = reject
 
 	return fr, nil
 }
@@ -204,6 +252,10 @@ type IncomingMessage struct {
 	FileCount         int
 
 	textReader io.Reader
+
+	transferInitialized bool
+	initializeTransfer  func() error
+	rejectTransfer      func() error
 
 	cryptor   *transportCryptor
 	buf       []byte
@@ -233,7 +285,43 @@ func (f *IncomingMessage) readText(p []byte) (int, error) {
 	return f.textReader.Read(p)
 }
 
+// Reject an incoming file or directory transfer. This must be
+// called before any calls to Read. This does nothing for
+// text message transfers.
+func (f *IncomingMessage) Reject() error {
+	switch f.Type {
+	case TransferFile, TransferDirectory:
+	default:
+		return errors.New("Can only reject File and Directory transfers")
+	}
+
+	if f.readErr != nil {
+		return f.readErr
+	}
+
+	if f.transferInitialized {
+		return errors.New("Cannot Reject after calls to Read")
+	}
+
+	f.transferInitialized = true
+	f.rejectTransfer()
+
+	return nil
+}
+
 func (f *IncomingMessage) readCrypt(p []byte) (int, error) {
+	if f.readErr != nil {
+		return 0, f.readErr
+	}
+
+	if !f.transferInitialized {
+		f.transferInitialized = true
+		err := f.initializeTransfer()
+		if err != nil {
+			return 0, err
+		}
+	}
+
 	if len(f.buf) == 0 {
 		rec, err := f.cryptor.readRecord()
 		if err == io.EOF {

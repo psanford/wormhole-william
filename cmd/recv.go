@@ -81,6 +81,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 			}
 
 			if !acceptFile {
+				msg.Reject()
 				bail("transfer rejected")
 			} else {
 				wd, err := os.Getwd()
@@ -149,6 +150,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 			}
 
 			if !acceptDir {
+				msg.Reject()
 				bail("transfer rejected")
 			} else {
 				err = os.Mkdir(msg.Name, 0777)

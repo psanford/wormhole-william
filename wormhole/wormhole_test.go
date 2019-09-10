@@ -141,7 +141,7 @@ func TestVerifierAbort(t *testing.T) {
 	}
 }
 
-func TestWormholeFileTransportSendRecvDirect(t *testing.T) {
+func TestWormholeFileReject(t *testing.T) {
 	ctx := context.Background()
 
 	rs := rendezvousservertest.NewServer()
@@ -152,21 +152,11 @@ func TestWormholeFileTransportSendRecvDirect(t *testing.T) {
 	// disable transit relay for this test
 	DefaultTransitRelayAddress = ""
 
-	var c0Verifier string
 	var c0 Client
 	c0.RendezvousURL = url
-	c0.VerifierOk = func(code string) bool {
-		c0Verifier = code
-		return true
-	}
 
-	var c1Verifier string
 	var c1 Client
 	c1.RendezvousURL = url
-	c1.VerifierOk = func(code string) bool {
-		c1Verifier = code
-		return true
-	}
 
 	fileContent := make([]byte, 1<<16)
 	for i := 0; i < len(fileContent); i++ {
@@ -185,28 +175,13 @@ func TestWormholeFileTransportSendRecvDirect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := ioutil.ReadAll(receiver)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(got, fileContent) {
-		t.Fatalf("File contents mismatch")
-	}
+	receiver.Reject()
 
 	result := <-resultCh
-	if !result.OK {
-		t.Fatalf("Expected ok result but got: %+v", result)
+	expectErr := "TransferError: transfer rejected"
+	if result.Error.Error() != expectErr {
+		t.Fatalf("Expected %q result but got: %+v", expectErr, result)
 	}
-
-	if c0Verifier == "" || c1Verifier == "" {
-		t.Fatalf("Failed to get verifier code c0=%q c1=%q", c0Verifier, c1Verifier)
-	}
-
-	if c0Verifier != c1Verifier {
-		t.Fatalf("Expected verifiers to match but were different")
-	}
-
 }
 
 func TestWormholeFileTransportSendRecvViaRelayServer(t *testing.T) {
