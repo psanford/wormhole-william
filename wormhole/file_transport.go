@@ -137,7 +137,11 @@ func (d *transportCryptor) writeRecord(msg []byte) error {
 
 	nonceAndSealedMsg := append(nonce[:], sealedMsg...)
 
-	if len(nonceAndSealedMsg) >= math.MaxUint32 {
+	// we do an explit cast to int64 to avoid compilation failures
+	// for 32bit systems.
+	nonceAndSealedMsgSize := int64(len(nonceAndSealedMsg))
+
+	if nonceAndSealedMsgSize >= math.MaxUint32 {
 		panic(fmt.Sprintf("writeRecord too large: %d", len(nonceAndSealedMsg)))
 	}
 
