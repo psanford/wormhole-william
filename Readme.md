@@ -22,18 +22,32 @@ Usage:
   wormhole-william send [WHAT] [flags]
 
 Flags:
-  -h, --help   help for send
+      --code string       human-generated code phrase
+  -c, --code-length int   length of code (in bytes/words)
+  -h, --help              help for send
+      --hide-progress     supress progress-bar display
+  -v, --verify            display verification string (and wait for approval)
+
+Global Flags:
+      --relay-url string   rendezvous relay to use
 
 
-$ ./wormhole-william recv --help
+$ ./wormhole-william receive --help
 Receive a text message, file, or directory...
 
 Usage:
-  wormhole-william recv [code] [flags]
+  wormhole-william receive [code] [flags]
+
+Aliases:
+  receive, recv
 
 Flags:
-  -h, --help   help for recv
+  -h, --help            help for receive
+      --hide-progress   supress progress-bar display
+  -v, --verify          display verification string (and wait for approval)
 
+Global Flags:
+      --relay-url string   rendezvous relay to use
 ```
 
 ## Building the CLI tool
@@ -89,8 +103,6 @@ func sendText() {
 func recvText(code string) {
 	var c wormhole.Client
 
-	var c wormhole.Client
-
 	ctx := context.Background()
 	msg, err := c.Receive(ctx, code)
 	if err != nil {
@@ -112,7 +124,3 @@ func recvText(code string) {
 ```
 
 See the [examples](https://github.com/psanford/wormhole-william/tree/master/examples) directory for working examples of how to use the API to send and receive text, files and directories.
-
-## API status
-
-The API is still experimental and so is subject to breaking changes.
