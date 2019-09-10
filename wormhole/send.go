@@ -22,8 +22,8 @@ import (
 
 // SendText sends a text message via the wormhole protocol.
 //
-// It returns the nameplate+passphrase code to give to the reciever, a result chan
-// that gets written to once the reciever actually attempts to read the message
+// It returns the nameplate+passphrase code to give to the receiver, a result chan
+// that gets written to once the receiver actually attempts to read the message
 // (either successfully or not).
 func (c *Client) SendText(ctx context.Context, msg string, opts ...SendOption) (string, chan SendResult, error) {
 	sideID := crypto.RandSideID()

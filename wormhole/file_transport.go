@@ -101,7 +101,7 @@ func (d *transportCryptor) readRecord() ([]byte, error) {
 	bigNonce.SetBytes(nonce[:])
 
 	if bigNonce.Cmp(d.nextReadNonce) != 0 {
-		d.err = errors.New("Recieved out-of-order record")
+		d.err = errors.New("Received out-of-order record")
 		return nil, d.err
 	}
 
