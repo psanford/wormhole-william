@@ -1,7 +1,9 @@
 wormhole-william
 ================
 
-wormhole-william is a go (golang) implementation of [magic wormhole](https://magic-wormhole.readthedocs.io/en/latest/). The goal is to be compatible with the [python magic wormhole cli tool](https://github.com/warner/magic-wormhole).
+wormhole-william is a go (golang) implementation of [magic wormhole](https://magic-wormhole.readthedocs.io/en/latest/). It provides secure end-to-end encrypted file transfers between computers. The endpoints are connected using the same "wormhole code".
+
+wormhole-william is compatible with the official [python magic wormhole cli tool](https://github.com/warner/magic-wormhole).
 
 Currently, wormhole-william supports:
 - sending and receiving text over the wormhole protocol
@@ -58,6 +60,12 @@ To just install via the go tool run:
 
 ```
 go get -u github.com/psanford/wormhole-william
+```
+
+If you have go 1.12+ installed you can fetch/build/run with a single command:
+
+```
+GO111MODULE=on go run github.com/psanford/wormhole-william receive
 ```
 
 ## API Usage
