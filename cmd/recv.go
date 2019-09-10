@@ -19,10 +19,11 @@ import (
 
 func recvCommand() *cobra.Command {
 	cmd := cobra.Command{
-		Use:   "recv [code]",
-		Short: "Receive a text message, file, or directory...",
-		Args:  cobra.MinimumNArgs(1),
-		Run:   recvAction,
+		Use:     "receive [code]",
+		Aliases: []string{"recv"},
+		Short:   "Receive a text message, file, or directory...",
+		Args:    cobra.MinimumNArgs(1),
+		Run:     recvAction,
 	}
 
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
