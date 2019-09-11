@@ -76,8 +76,10 @@ func recvAction(cmd *cobra.Command, args []string) {
 	case wormhole.TransferFile:
 		var acceptFile bool
 		if _, err := os.Stat(msg.Name); err == nil {
+			msg.Reject()
 			errf("Error refusing to overwrite existing '%s'", msg.Name)
 		} else if !os.IsNotExist(err) {
+			msg.Reject()
 			errf("Error stat'ing existing '%s'\n", msg.Name)
 		} else {
 			reader := bufio.NewReader(os.Stdin)
