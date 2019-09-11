@@ -25,6 +25,7 @@ type TestServer struct {
 	mu         sync.Mutex
 	mailboxes  map[string]*mailbox
 	nameplates map[int16]string
+	agents     [][]string
 }
 
 func NewServer() *TestServer {
@@ -38,6 +39,10 @@ func NewServer() *TestServer {
 
 	ts.Server = httptest.NewServer(smux)
 	return ts
+}
+
+func (ts *TestServer) Agents() [][]string {
+	return ts.agents
 }
 
 func (ts *TestServer) WebSocketURL() string {
@@ -235,6 +240,10 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 				errMsg(m.ID, m, fmt.Errorf("bind requires 'side'"))
 				continue
 			}
+
+			ts.mu.Lock()
+			ts.agents = append(ts.agents, m.ClientVersion)
+			ts.mu.Unlock()
 
 			sideID = m.Side
 		case *msgs.Allocate:

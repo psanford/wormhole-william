@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
+	"github.com/psanford/wormhole-william/version"
 )
 
 // NewClient returns a Rendezvous client. URL is the websocket
@@ -21,8 +22,8 @@ import (
 // AppID is the application identity string of the client.
 //
 // Two clients can only communicate if they have the same AppID.
-func NewClient(url, sideID, appID string) *Client {
-	return &Client{
+func NewClient(url, sideID, appID string, opts ...ClientOption) *Client {
+	c := &Client{
 		url:         url,
 		sideID:      sideID,
 		appID:       appID,
@@ -33,6 +34,12 @@ func NewClient(url, sideID, appID string) *Client {
 
 		pendingMsgWaiters: make(map[uint32]chan uint32),
 	}
+
+	for _, opt := range opts {
+		opt.setValue(c)
+	}
+
+	return c
 }
 
 type pendingMsg struct {
@@ -51,6 +58,9 @@ type Client struct {
 	mailboxID string
 
 	nameplate string
+
+	agentString  string
+	agentVersion string
 
 	wsClient *websocket.Conn
 
@@ -511,10 +521,26 @@ func (c *Client) prepareMsg(msg interface{}) (string, error) {
 	return id, nil
 }
 
+func (c *Client) agentID() (string, string) {
+	agent := c.agentString
+	if agent == "" {
+		agent = version.AgentString
+	}
+	v := c.agentVersion
+	if v == "" {
+		v = version.AgentVersion
+	}
+
+	return agent, v
+}
+
 func (c *Client) bind(ctx context.Context, side, appID string) error {
+	agent, version := c.agentID()
+
 	bind := msgs.Bind{
-		Side:  side,
-		AppID: appID,
+		Side:          side,
+		AppID:         appID,
+		ClientVersion: []string{agent, version},
 	}
 
 	_, err := c.sendAndWait(ctx, &bind)

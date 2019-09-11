@@ -7,6 +7,7 @@ import (
 
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/rendezvousservertest"
+	"github.com/psanford/wormhole-william/version"
 )
 
 func TestBasicClient(t *testing.T) {
@@ -28,6 +29,15 @@ func TestBasicClient(t *testing.T) {
 
 	if info.MOTD != rendezvousservertest.TestMotd {
 		t.Fatalf("MOTD got=%s expected=%s", info.MOTD, rendezvousservertest.TestMotd)
+	}
+
+	gotAgents := ts.Agents()
+	expectAgents := [][]string{
+		[]string{version.AgentString, version.AgentVersion},
+	}
+
+	if !reflect.DeepEqual(gotAgents, expectAgents) {
+		t.Fatalf("got agents=%v expected=%v", gotAgents, expectAgents)
 	}
 
 	nameplate, err := c0.CreateMailbox(ctx)
@@ -99,4 +109,34 @@ func TestBasicClient(t *testing.T) {
 		t.Fatalf("c1 got message when it wasn't expecting one: %+v", m)
 	default:
 	}
+}
+
+func TestCustomUserAgent(t *testing.T) {
+	ts := rendezvousservertest.NewServer()
+	defer ts.Close()
+
+	side0 := crypto.RandSideID()
+	appID := "nightclubs-reasonableness"
+
+	agentString := "deafening-buttermilk"
+	agentVersion := "v1.2.3"
+	c0 := NewClient(ts.WebSocketURL(), side0, appID, WithVersion(agentString, agentVersion))
+
+	ctx := context.Background()
+
+	_, err := c0.Connect(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gotAgents := ts.Agents()
+	expectAgents := [][]string{
+		[]string{agentString, agentVersion},
+	}
+
+	if !reflect.DeepEqual(gotAgents, expectAgents) {
+		t.Fatalf("got agents=%v expected=%v", gotAgents, expectAgents)
+	}
+
+	c0.Close(ctx, "")
 }

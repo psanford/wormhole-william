@@ -19,6 +19,9 @@ type Bind struct {
 	ID    string `json:"id"`
 	Side  string `json:"side"`
 	AppID string `json:"appid"`
+	// ClientVersion is by convention a two value array
+	// of [client_id, version]
+	ClientVersion []string `json:"client_version"`
 }
 
 // Client sent aollocate message
