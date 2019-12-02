@@ -8,7 +8,7 @@ jobs:
     timeout-minutes: 3
     strategy:
       matrix:
-        go-version: [1.12.9, 1.13]
+        go-version: [1.12.13, 1.13.4]
 
         
     steps:
