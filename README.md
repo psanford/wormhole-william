@@ -1,5 +1,4 @@
-wormhole-william
-================
+# wormhole-william
 
 wormhole-william is a go (golang) implementation of [magic wormhole](https://magic-wormhole.readthedocs.io/en/latest/). It provides secure end-to-end encrypted file transfers between computers. The endpoints are connected using the same "wormhole code".
 
@@ -12,7 +11,7 @@ Currently, wormhole-william supports:
 
 ## Docs
 
-https://godoc.org/github.com/psanford/wormhole-william/wormhole
+https://pkg.go.dev/github.com/psanford/wormhole-william/wormhole?tab=doc
 
 ## CLI Usage
 
@@ -27,7 +26,7 @@ Flags:
       --code string       human-generated code phrase
   -c, --code-length int   length of code (in bytes/words)
   -h, --help              help for send
-      --hide-progress     supress progress-bar display
+      --hide-progress     suppress progress-bar display
   -v, --verify            display verification string (and wait for approval)
 
 Global Flags:
@@ -45,7 +44,7 @@ Aliases:
 
 Flags:
   -h, --help            help for receive
-      --hide-progress   supress progress-bar display
+      --hide-progress   suppress progress-bar display
   -v, --verify          display verification string (and wait for approval)
 
 Global Flags:
@@ -71,7 +70,8 @@ GO111MODULE=on go run github.com/psanford/wormhole-william receive
 ## API Usage
 
 Sending text:
-```
+
+```go
 package main
 
 import (
