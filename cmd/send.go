@@ -50,7 +50,7 @@ func sendCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
 	cmd.Flags().IntVarP(&codeLen, "code-length", "c", 0, "length of code (in bytes/words)")
 	cmd.Flags().StringVar(&codeFlag, "code", "", "human-generated code phrase")
-	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "supress progress-bar display")
+	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
 
 	return &cmd
 }

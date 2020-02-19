@@ -26,7 +26,7 @@ func recvCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
-	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "supress progress-bar display")
+	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
 
 	return &cmd
 }
