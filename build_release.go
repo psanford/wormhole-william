@@ -2,7 +2,10 @@
 
 // This is a tool to assist with building release artifacts.
 //
-// To run: go run build_release.go
+// Instructions for cutting a new release:
+// - Update version/version.go
+// - Make new git tag
+// - Run: go run build_release.go
 
 package main
 
