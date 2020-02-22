@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,8 +17,9 @@ import (
 )
 
 var (
-	codeLen  int
-	codeFlag string
+	codeLen      int
+	codeFlag     string
+	sendTextFlag string
 )
 
 func sendCommand() *cobra.Command {
@@ -50,6 +52,7 @@ func sendCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
 	cmd.Flags().IntVarP(&codeLen, "code-length", "c", 0, "length of code (in bytes/words)")
 	cmd.Flags().StringVar(&codeFlag, "code", "", "human-generated code phrase")
+	cmd.Flags().StringVar(&sendTextFlag, "text", "", "text message to send, instead of a file.\nUse '-' to read from stdin")
 	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
 
 	return &cmd
@@ -195,14 +198,24 @@ func sendDir(dirpath string) {
 func sendText() {
 	c := newClient()
 
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Text to send: ")
-	msg, _ := reader.ReadString('\n')
+	var msg string
+	if sendTextFlag == "-" {
+		data, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			bail("Read stdin err: %s", err)
+		}
+		msg = string(data)
+	} else if sendTextFlag != "" {
+		msg = sendTextFlag
+	} else {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Text to send: ")
+		msg, _ := reader.ReadString('\n')
 
-	msg = strings.TrimSpace(msg)
+		msg = strings.TrimSpace(msg)
+	}
 
 	ctx := context.Background()
-
 	code, status, err := c.SendText(ctx, msg, wormhole.WithCode(codeFlag))
 	if err != nil {
 		log.Fatal(err)
