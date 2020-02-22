@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 )
 
@@ -22,6 +24,9 @@ var (
 
 func Execute() error {
 	rootCmd.PersistentFlags().StringVar(&relayURL, "relay-url", "", "rendezvous relay to use")
+	if relayURL == "" {
+		relayURL = os.Getenv("WORMHOLE_RELAY_URL")
+	}
 
 	rootCmd.AddCommand(recvCommand())
 	rootCmd.AddCommand(sendCommand())
