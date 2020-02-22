@@ -3,12 +3,14 @@ package cmd
 import (
 	"os"
 
+	"github.com/psanford/wormhole-william/version"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "wormhole-william",
-	Short: "Create a wormhole and transfer files through it.",
+	Use:     "wormhole-william",
+	Short:   "Create a wormhole and transfer files through it.",
+	Version: version.AgentVersion,
 	Long: `Create a (magic) Wormhole and communicate through it.
 
   Wormholes are created by speaking the same magic CODE in two different
