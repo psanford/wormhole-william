@@ -210,8 +210,7 @@ func sendText() {
 	} else {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Text to send: ")
-		msg, _ := reader.ReadString('\n')
-
+		msg, _ = reader.ReadString('\n')
 		msg = strings.TrimSpace(msg)
 	}
 
