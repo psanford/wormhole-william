@@ -1,3 +1,5 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/psanford/wormhole-william)](https://goreportcard.com/report/github.com/psanford/wormhole-william)
+
 # wormhole-william
 
 wormhole-william is a go (golang) implementation of [magic wormhole](https://magic-wormhole.readthedocs.io/en/latest/). It provides secure end-to-end encrypted file transfers between computers. The endpoints are connected using the same "wormhole code".
