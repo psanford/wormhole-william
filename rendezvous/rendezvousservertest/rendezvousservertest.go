@@ -321,7 +321,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			ackMsg(m.ID)
 
 			if openMailbox != nil {
-				errMsg(m.ID, m, errors.New("opnly one open per conncetion"))
+				errMsg(m.ID, m, errors.New("only one open per connection"))
 				continue
 			}
 

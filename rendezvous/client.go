@@ -83,7 +83,7 @@ type Client struct {
 }
 
 type MailboxEvent struct {
-	// Error will be non nil if an error occured
+	// Error will be non nil if an error occurred
 	// while waiting for messages
 	Error error
 	Side  string
@@ -111,7 +111,7 @@ func (c clientState) String() string {
 	case stateClosed:
 		return "Closed"
 	default:
-		return fmt.Sprintf("Unkown client state: %d", c)
+		return fmt.Sprintf("Unknown client state: %d", c)
 	}
 }
 

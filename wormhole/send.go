@@ -424,7 +424,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 
 // SendFile sends a single file via the wormhole protocol. It returns a nameplate+passhrase code to give to the
 // receiver, a result channel that will be written to after the receiver attempts to read (either successfully or not)
-// and an error if one occured.
+// and an error if one occurred.
 func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker, opts ...SendOption) (string, chan SendResult, error) {
 	if err := c.validateRelayAddr(); err != nil {
 		return "", nil, fmt.Errorf("Invalid TransitRelayAddress: %s", err)
@@ -462,7 +462,7 @@ type DirectoryEntry struct {
 //
 // It returns a nameplate+passhrase code to give to the
 // receiver, a result channel that will be written to after the receiver attempts to read (either successfully or not)
-// and an error if one occured.
+// and an error if one occurred.
 func (c *Client) SendDirectory(ctx context.Context, directoryName string, entries []DirectoryEntry, opts ...SendOption) (string, chan SendResult, error) {
 	zipInfo, err := makeTmpZip(directoryName, entries)
 	if err != nil {
