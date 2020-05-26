@@ -255,6 +255,7 @@ func bail(msg string, args ...interface{}) {
 
 func formatBytes(b int) string {
 	const unit = 1000
+func formatBytes(b int64) string {
 	if b < unit {
 		return fmt.Sprintf("%d B", b)
 	}
@@ -276,11 +277,11 @@ func (p *proxyReadCloser) Close() error {
 	return nil
 }
 
-func pbProxyReader(r io.Reader, size int) io.ReadCloser {
+func pbProxyReader(r io.Reader, size int64) io.ReadCloser {
 	if hideProgressBar {
 		return ioutil.NopCloser(r)
 	} else {
-		progressBar := pb.Full.Start(size)
+		progressBar := pb.Full.Start64(size)
 		proxyReader := progressBar.NewProxyReader(r)
 		return &proxyReadCloser{
 			Reader: proxyReader,

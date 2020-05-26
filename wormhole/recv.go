@@ -126,14 +126,14 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	} else if offer.File != nil {
 		fr.Type = TransferFile
 		fr.Name = offer.File.FileName
-		fr.TransferBytes = int(offer.File.FileSize)
-		fr.UncompressedBytes = int(offer.File.FileSize)
+		fr.TransferBytes = offer.File.FileSize
+		fr.UncompressedBytes = offer.File.FileSize
 		fr.FileCount = 1
 	} else if offer.Directory != nil {
 		fr.Type = TransferDirectory
 		fr.Name = offer.Directory.Dirname
-		fr.TransferBytes = int(offer.Directory.ZipSize)
-		fr.UncompressedBytes = int(offer.Directory.NumBytes)
+		fr.TransferBytes = offer.Directory.ZipSize
+		fr.UncompressedBytes = offer.Directory.NumBytes
 		fr.FileCount = int(offer.Directory.NumFiles)
 	} else {
 		return nil, errors.New("Got non-file transfer offer")
@@ -247,8 +247,8 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 type IncomingMessage struct {
 	Name              string
 	Type              TransferType
-	TransferBytes     int
-	UncompressedBytes int
+	TransferBytes     int64
+	UncompressedBytes int64
 	FileCount         int
 
 	textReader io.Reader
@@ -259,7 +259,7 @@ type IncomingMessage struct {
 
 	cryptor   *transportCryptor
 	buf       []byte
-	readCount int
+	readCount int64
 	sha256    hash.Hash
 
 	readErr error
@@ -337,7 +337,7 @@ func (f *IncomingMessage) readCrypt(p []byte) (int, error) {
 
 	n := copy(p, f.buf)
 	f.buf = f.buf[n:]
-	f.readCount += n
+	f.readCount += int64(n)
 	f.sha256.Write(p[:n])
 	if f.readCount >= f.TransferBytes {
 		f.readErr = io.EOF
