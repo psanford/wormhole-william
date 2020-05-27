@@ -253,9 +253,8 @@ func bail(msg string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func formatBytes(b int) string {
-	const unit = 1000
 func formatBytes(b int64) string {
+	const unit = 1000
 	if b < unit {
 		return fmt.Sprintf("%d B", b)
 	}
