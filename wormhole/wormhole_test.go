@@ -239,6 +239,58 @@ func TestWormholeFileTransportSendRecvViaRelayServer(t *testing.T) {
 
 }
 
+func TestWormholeBigFileTransportSendRecvViaRelayServer(t *testing.T) {
+	ctx := context.Background()
+
+	rs := rendezvousservertest.NewServer()
+	defer rs.Close()
+
+	url := rs.WebSocketURL()
+
+	testDisableLocalListener = true
+	defer func() { testDisableLocalListener = false }()
+
+	relayServer := newTestRelayServer()
+	defer relayServer.close()
+
+	var c0 Client
+	c0.RendezvousURL = url
+	c0.TransitRelayAddress = relayServer.addr
+
+	var c1 Client
+	c1.RendezvousURL = url
+	c1.TransitRelayAddress = relayServer.addr
+
+	// Create a fake file offer
+	var fakeBigSize int64 = 32098461509
+	offer := &offerMsg{
+		File: &offerFile{
+			FileName: "fakefile",
+			FileSize: fakeBigSize,
+		},
+	}
+
+	// just a pretend reader
+	r := bytes.NewReader(make([]byte, 1))
+
+	// skip th wrapper so we can provide our own offer
+	code, _, err := c0.sendFileDirectory(ctx, offer, r)
+	//c0.SendFile(ctx, "file.txt", buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receiver, err := c1.Receive(ctx, code)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if int64(receiver.TransferBytes) != fakeBigSize {
+		t.Fatalf("Mismatch in size between what we are trying to send and what is (our parsed) offer. Expected %v but got %v", fakeBigSize, receiver.TransferBytes)
+	}
+
+}
+
 func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
 	ctx := context.Background()
 
