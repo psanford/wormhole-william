@@ -83,7 +83,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 			errf("Error stat'ing existing '%s'\n", msg.Name)
 		} else {
 			reader := bufio.NewReader(os.Stdin)
-			fmt.Printf("Receiving file (%s) into: %s\n", formatBytes(msg.TransferBytes), msg.Name)
+			fmt.Printf("Receiving file (%s) into: %s\n", formatBytes(msg.TransferBytes64), msg.Name)
 			fmt.Print("ok? (y/N):")
 
 			line, err := reader.ReadString('\n')
@@ -108,7 +108,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 					bail("Failed to create tempfile: %s", err)
 				}
 
-				proxyReader := pbProxyReader(msg, msg.TransferBytes)
+				proxyReader := pbProxyReader(msg, msg.TransferBytes64)
 
 				_, err = io.Copy(f, proxyReader)
 				if err != nil {
@@ -151,8 +151,8 @@ func recvAction(cmd *cobra.Command, args []string) {
 			errf("Error stat'ing existing '%s'\n", msg.Name)
 		} else {
 			reader := bufio.NewReader(os.Stdin)
-			fmt.Printf("Receiving directory (%s) into: %s\n", formatBytes(msg.TransferBytes), msg.Name)
-			fmt.Printf("%d files, %s (uncompressed)\n", msg.FileCount, formatBytes(msg.UncompressedBytes))
+			fmt.Printf("Receiving directory (%s) into: %s\n", formatBytes(msg.TransferBytes64), msg.Name)
+			fmt.Printf("%d files, %s (uncompressed)\n", msg.FileCount, formatBytes(msg.UncompressedBytes64))
 			fmt.Print("ok? (y/N):")
 
 			line, err := reader.ReadString('\n')
@@ -181,7 +181,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 				defer tmpFile.Close()
 				defer os.Remove(tmpFile.Name())
 
-				proxyReader := pbProxyReader(msg, msg.TransferBytes)
+				proxyReader := pbProxyReader(msg, msg.TransferBytes64)
 
 				n, err := io.Copy(tmpFile, proxyReader)
 				if err != nil {

@@ -126,14 +126,18 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	} else if offer.File != nil {
 		fr.Type = TransferFile
 		fr.Name = offer.File.FileName
-		fr.TransferBytes = offer.File.FileSize
-		fr.UncompressedBytes = offer.File.FileSize
+		fr.TransferBytes = int(offer.File.FileSize)
+		fr.TransferBytes64 = offer.File.FileSize
+		fr.UncompressedBytes = int(offer.File.FileSize)
+		fr.UncompressedBytes64 = offer.File.FileSize
 		fr.FileCount = 1
 	} else if offer.Directory != nil {
 		fr.Type = TransferDirectory
 		fr.Name = offer.Directory.Dirname
-		fr.TransferBytes = offer.Directory.ZipSize
-		fr.UncompressedBytes = offer.Directory.NumBytes
+		fr.TransferBytes = int(offer.Directory.ZipSize)
+		fr.TransferBytes64 = offer.Directory.ZipSize
+		fr.UncompressedBytes = int(offer.Directory.NumBytes)
+		fr.UncompressedBytes64 = offer.Directory.NumBytes
 		fr.FileCount = int(offer.Directory.NumFiles)
 	} else {
 		return nil, errors.New("Got non-file transfer offer")
@@ -245,11 +249,17 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 // If the Type is TransferDirectory then reading from the IncomingMessage will
 // read a zip file of the contents of the directory.
 type IncomingMessage struct {
-	Name              string
-	Type              TransferType
-	TransferBytes     int64
-	UncompressedBytes int64
-	FileCount         int
+	Name string
+	Type TransferType
+	// Deprecated: TransferBytes has been replaced with with TransferBytes64
+	// to allow transfer of >2 GiB files on 32 bit systems
+	TransferBytes   int
+	TransferBytes64 int64
+	// Deprecated: UncompressedBytes has been replaced with UncompressedBytes64
+	// to allow transfers of > 2 GiB files on 32 bit systems
+	UncompressedBytes   int
+	UncompressedBytes64 int64
+	FileCount           int
 
 	textReader io.Reader
 
@@ -339,7 +349,7 @@ func (f *IncomingMessage) readCrypt(p []byte) (int, error) {
 	f.buf = f.buf[n:]
 	f.readCount += int64(n)
 	f.sha256.Write(p[:n])
-	if f.readCount >= f.TransferBytes {
+	if f.readCount >= f.TransferBytes64 {
 		f.readErr = io.EOF
 
 		sum := f.sha256.Sum(nil)
