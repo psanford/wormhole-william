@@ -285,8 +285,8 @@ func TestWormholeBigFileTransportSendRecvViaRelayServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if int64(receiver.TransferBytes) != fakeBigSize {
-		t.Fatalf("Mismatch in size between what we are trying to send and what is (our parsed) offer. Expected %v but got %v", fakeBigSize, receiver.TransferBytes)
+	if int64(receiver.TransferBytes64) != fakeBigSize {
+		t.Fatalf("Mismatch in size between what we are trying to send and what is (our parsed) offer. Expected %v but got %v", fakeBigSize, receiver.TransferBytes64)
 	}
 
 }
