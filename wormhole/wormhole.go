@@ -625,14 +625,12 @@ func (cc *clientProtocol) Collect(msgTypes ...collectType) (*msgCollector, error
 	return collector, nil
 }
 
-var nonNumericNameplace = errors.New("Non-numeric nameplate")
-
-func nameplaceFromCode(code string) (string, error) {
+func nameplateFromCode(code string) (string, error) {
 	nameplate := strings.SplitN(code, "-", 2)[0]
 
 	_, err := strconv.Atoi(nameplate)
 	if err != nil {
-		return "", nonNumericNameplace
+		return "", errors.New("Non-numeric nameplate")
 	}
 
 	return nameplate, nil
