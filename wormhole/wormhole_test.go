@@ -17,11 +17,6 @@ import (
 	"github.com/psanford/wormhole-william/rendezvous/rendezvousservertest"
 )
 
-type verifierResult struct {
-	clientID string
-	code     string
-}
-
 func TestWormholeSendRecvText(t *testing.T) {
 	ctx := context.Background()
 
@@ -58,7 +53,7 @@ func TestWormholeSendRecvText(t *testing.T) {
 	nameplate := strings.SplitN(code, "-", 2)[0]
 
 	// recv with wrong code
-	msg, err := c1.Receive(ctx, fmt.Sprintf("%s-intermarrying-aliased", nameplate))
+	_, err = c1.Receive(ctx, fmt.Sprintf("%s-intermarrying-aliased", nameplate))
 	if err != errDecryptFailed {
 		t.Fatalf("Recv side expected decrypt failed due to wrong code but got: %s", err)
 	}
@@ -74,7 +69,7 @@ func TestWormholeSendRecvText(t *testing.T) {
 	}
 
 	// recv with correct code
-	msg, err = c1.Receive(ctx, code)
+	msg, err := c1.Receive(ctx, code)
 	if err != nil {
 		t.Fatalf("Recv side got unexpected err: %s", err)
 	}

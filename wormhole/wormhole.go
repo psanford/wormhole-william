@@ -110,7 +110,7 @@ type SendResult struct {
 	Error error
 }
 
-var errDecryptFailed = errors.New("Decrypt message failed")
+var errDecryptFailed = errors.New("decrypt message failed")
 
 func openAndUnmarshal(v interface{}, mb rendezvous.MailboxEvent, sharedKey []byte) error {
 	keySlice := derivePhaseKey(string(sharedKey), mb.Side, mb.Phase)
@@ -323,7 +323,7 @@ func (c *msgCollector) close() {
 
 func (c *msgCollector) waitFor(msg collectable) error {
 	if reflect.ValueOf(msg).Kind() != reflect.Ptr {
-		return errors.New("You must pass waitFor a pointer to a struct")
+		return errors.New("you must pass waitFor a pointer to a struct")
 	}
 	sub := collectSubscription{
 		collectMsg: msg,
@@ -389,7 +389,7 @@ func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) {
 			} else {
 				if waiters[collectType] != nil {
 					sub.result <- collectResult{
-						err: errors.New("There is already a pending collect request for this type"),
+						err: errors.New("there is already a pending collect request for this type"),
 					}
 				} else {
 					waiters[collectType] = sub
@@ -406,7 +406,7 @@ func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) {
 			}
 
 			if _, err := strconv.Atoi(gotMsg.Phase); err != nil {
-				errorResult(fmt.Errorf("Got unexpected phase: %s", gotMsg.Phase))
+				errorResult(fmt.Errorf("got unexpected phase: %s", gotMsg.Phase))
 				return
 			}
 
@@ -442,7 +442,7 @@ func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) {
 				delete(waiters, t)
 			} else {
 				if pendingMsgs[t] != nil {
-					errorResult(fmt.Errorf("Got multiple messages of type %s", t))
+					errorResult(fmt.Errorf("got multiple messages of type %s", t))
 					return
 				}
 				pendingMsgs[t] = resultMsg
@@ -509,7 +509,7 @@ func (cc *clientProtocol) ReadPake() error {
 
 func (cc *clientProtocol) Verifier() ([]byte, error) {
 	if cc.sharedKey == nil {
-		return nil, errors.New("Shared key not established yet")
+		return nil, errors.New("shared key not established yet")
 	}
 
 	return deriveVerifier(cc.sharedKey), nil
@@ -560,7 +560,7 @@ func (cc *clientProtocol) openAndUnmarshal(phase string, v interface{}) error {
 	}
 
 	if gotMsg.Phase != phase {
-		return fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
+		return fmt.Errorf("got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
 	}
 
 	return openAndUnmarshal(v, gotMsg, cc.sharedKey)
@@ -573,7 +573,7 @@ func (cc *clientProtocol) readPlaintext(phase string, v interface{}) error {
 	}
 
 	if gotMsg.Phase != phase {
-		return fmt.Errorf("Got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
+		return fmt.Errorf("got unexpected phase while waiting for %s: %s", phase, gotMsg.Phase)
 	}
 
 	err := jsonHexUnmarshal(gotMsg.Body, &v)
@@ -617,7 +617,7 @@ func (cc *clientProtocol) Collect(msgTypes ...collectType) (*msgCollector, error
 		case collectAnswer:
 			collector.collectAnswer = true
 		default:
-			return nil, fmt.Errorf("Unknown collect msg type %d", msgTypes)
+			return nil, fmt.Errorf("unknown collect msg type %d", msgTypes)
 		}
 	}
 
@@ -630,7 +630,7 @@ func nameplateFromCode(code string) (string, error) {
 
 	_, err := strconv.Atoi(nameplate)
 	if err != nil {
-		return "", errors.New("Non-numeric nameplate")
+		return "", errors.New("non-numeric nameplate")
 	}
 
 	return nameplate, nil

@@ -76,8 +76,6 @@ type Client struct {
 	pendingMsgs       []pendingMsg
 	pendingMsgWaiters map[uint32]chan uint32
 
-	mailboxChan chan MailboxEvent
-
 	clientState clientState
 	err         error
 }
@@ -130,13 +128,13 @@ type ConnectInfo struct {
 func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
 	swapped := atomic.CompareAndSwapInt32((*int32)(&c.clientState), int32(statePending), int32(stateOpen))
 	if !swapped {
-		return nil, fmt.Errorf("Current client state %s != Pending, cannot connect", c.clientState)
+		return nil, fmt.Errorf("current client state %s != pending, cannot connect", c.clientState)
 	}
 
 	var err error
 	c.wsClient, _, err = websocket.DefaultDialer.Dial(c.url, nil)
 	if err != nil {
-		wrappedErr := fmt.Errorf("Dial %s: %s", c.url, err)
+		wrappedErr := fmt.Errorf("dial %s: %s", c.url, err)
 		c.closeWithError(wrappedErr)
 		return nil, wrappedErr
 	}
@@ -151,7 +149,7 @@ func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
 	}
 
 	if welcome.Welcome.Error != "" {
-		err := fmt.Errorf("Server error: %s", err)
+		err := fmt.Errorf("server error: %s", err)
 		c.closeWithError(err)
 		return nil, err
 	}
@@ -214,10 +212,7 @@ func (c *Client) readMsg(ctx context.Context, m interface{}) error {
 	defer c.deregisterWaiter(waiterID)
 
 	for {
-		_, ok := <-ch
-		if !ok {
-
-		}
+		<-ch
 		msg := c.searchPendingMsgs(ctx, expectMsgType)
 		if msg != nil {
 
@@ -472,7 +467,7 @@ func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*msgs.Ack, e
 	c.sendCmdMu.Unlock()
 
 	if ack.ID != id {
-		return nil, fmt.Errorf("Got ack for different message. Got %s send: %+v", ack.ID, msg)
+		return nil, fmt.Errorf("got ack for different message. got %s send: %+v", ack.ID, msg)
 	}
 
 	return &ack, nil
@@ -502,7 +497,7 @@ func (c *Client) prepareMsg(msg interface{}) (string, error) {
 		if field.Name == "Type" {
 			msgType, _ := field.Tag.Lookup("rendezvous_value")
 			if msgType == "" {
-				return "", errors.New("Type filed missing rendezvous_value struct tag")
+				return "", errors.New("type filed missing rendezvous_value struct tag")
 			}
 			ff := val.Field(i)
 			ff.SetString(msgType)
@@ -617,10 +612,6 @@ func (c *Client) openMailbox(ctx context.Context, mailbox string) error {
 
 	_, err := c.sendAndWait(ctx, &open)
 	return err
-}
-
-type prepareable interface {
-	prepare() (interface{}, string)
 }
 
 // readMessages reads off the websocket and dispatches messages

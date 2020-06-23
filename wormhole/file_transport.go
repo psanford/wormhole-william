@@ -101,7 +101,7 @@ func (d *transportCryptor) readRecord() ([]byte, error) {
 	bigNonce.SetBytes(nonce[:])
 
 	if bigNonce.Cmp(d.nextReadNonce) != 0 {
-		d.err = errors.New("Received out-of-order record")
+		d.err = errors.New("received out-of-order record")
 		return nil, d.err
 	}
 
@@ -356,7 +356,7 @@ func (t *fileTransport) makeTransitMsg() (*transitMsg, error) {
 
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
-			return nil, fmt.Errorf("Port isn't an integer? %s", portStr)
+			return nil, fmt.Errorf("port isn't an integer? %s", portStr)
 		}
 
 		addrs := nonLocalhostAddresses()
@@ -379,7 +379,7 @@ func (t *fileTransport) makeTransitMsg() (*transitMsg, error) {
 
 		relayPort, err := strconv.Atoi(portStr)
 		if err != nil {
-			return nil, fmt.Errorf("Port isn't an integer? %s", portStr)
+			return nil, fmt.Errorf("port isn't an integer? %s", portStr)
 		}
 
 		msg.HintsV1 = append(msg.HintsV1, transitHintsV1{
@@ -499,7 +499,7 @@ func (t *fileTransport) waitForRelayPeer(conn net.Conn, cancelCh chan struct{}) 
 
 	if !bytes.Equal(gotOk, []byte("ok\n")) {
 		conn.Close()
-		return errors.New("Got non ok status from relay server")
+		return errors.New("got non ok status from relay server")
 	}
 
 	return nil
@@ -603,15 +603,6 @@ func (t *fileTransport) handleIncomingConnection(conn net.Conn, readyCh chan<- n
 		conn.Close()
 	case readyCh <- conn:
 	}
-}
-
-func (t *fileTransport) close() error {
-	if t.listener != nil {
-		err := t.listener.Close()
-		t.listener = nil
-		return err
-	}
-	return nil
 }
 
 func nonLocalhostAddresses() []string {

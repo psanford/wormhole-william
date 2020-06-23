@@ -136,7 +136,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 		fr.UncompressedBytes = int(offer.Directory.NumBytes)
 		fr.FileCount = int(offer.Directory.NumFiles)
 	} else {
-		return nil, errors.New("Got non-file transfer offer")
+		return nil, errors.New("got non-file transfer offer")
 	}
 
 	var gotTransitMsg transitMsg
@@ -150,7 +150,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 
 	transitMsg, err := transport.makeTransitMsg()
 	if err != nil {
-		return nil, fmt.Errorf("Make transit msg error: %s", err)
+		return nil, fmt.Errorf("make transit msg error: %s", err)
 	}
 
 	err = clientProto.WriteAppData(ctx, &genericMessage{
@@ -223,7 +223,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 		}
 
 		if conn == nil {
-			return errors.New("Failed to establish connection")
+			return errors.New("failed to establish connection")
 		}
 
 		cryptor := newTransportCryptor(conn, transitKey, "transit_record_sender_key", "transit_record_receiver_key")
@@ -277,7 +277,7 @@ func (f *IncomingMessage) Read(p []byte) (int, error) {
 	case TransferFile, TransferDirectory:
 		return f.readCrypt(p)
 	default:
-		return 0, fmt.Errorf("Unknown Receiver type %d", f.Type)
+		return 0, fmt.Errorf("unknown Receiver type %d", f.Type)
 	}
 }
 
@@ -292,7 +292,7 @@ func (f *IncomingMessage) Reject() error {
 	switch f.Type {
 	case TransferFile, TransferDirectory:
 	default:
-		return errors.New("Can only reject File and Directory transfers")
+		return errors.New("can only reject File and Directory transfers")
 	}
 
 	if f.readErr != nil {
@@ -300,7 +300,7 @@ func (f *IncomingMessage) Reject() error {
 	}
 
 	if f.transferInitialized {
-		return errors.New("Cannot Reject after calls to Read")
+		return errors.New("cannot Reject after calls to Read")
 	}
 
 	f.transferInitialized = true
