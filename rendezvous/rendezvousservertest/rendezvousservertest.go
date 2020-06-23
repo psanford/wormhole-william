@@ -146,7 +146,7 @@ func serverUnmarshal(m []byte) (interface{}, error) {
 
 	protoType, found := msgs.MsgMap[genericMsg.Type]
 	if !found {
-		return nil, fmt.Errorf("Unknown msg type: %s %v %s\n", genericMsg.Type, genericMsg, m)
+		return nil, fmt.Errorf("unknown msg type: %s %v %s", genericMsg.Type, genericMsg, m)
 	}
 	t := reflect.TypeOf(protoType)
 	val := reflect.New(t)
@@ -267,7 +267,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			ts.mu.Unlock()
 
 			if nameplate < 1 {
-				errMsg(m.ID, m, fmt.Errorf("Failed to allocate nameplate"))
+				errMsg(m.ID, m, fmt.Errorf("failed to allocate nameplate"))
 				continue
 			}
 
@@ -287,7 +287,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			mboxID := ts.nameplates[int16(nameplate)]
 			ts.mu.Unlock()
 			if mboxID == "" {
-				errMsg(m.ID, m, fmt.Errorf("No namespaces available"))
+				errMsg(m.ID, m, fmt.Errorf("no namespaces available"))
 				continue
 			}
 
@@ -295,7 +295,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			mbox := ts.mailboxes[mboxID]
 			ts.mu.Unlock()
 			if mbox == nil {
-				errMsg(m.ID, m, fmt.Errorf("No mailbox found associated to nameplate %s", m.Nameplate))
+				errMsg(m.ID, m, fmt.Errorf("no mailbox found associated to nameplate %s", m.Nameplate))
 				continue
 			}
 
@@ -330,7 +330,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			ts.mu.Unlock()
 
 			if mbox == nil {
-				errMsg(m.ID, m, errors.New("Mailbox not found"))
+				errMsg(m.ID, m, errors.New("mailbox not found"))
 				continue
 			}
 
@@ -368,7 +368,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 
 			nameplate, err := strconv.Atoi(m.Nameplate)
 			if err != nil {
-				errMsg(m.ID, m, errors.New("No nameplate found"))
+				errMsg(m.ID, m, errors.New("no nameplate found"))
 				continue
 			}
 

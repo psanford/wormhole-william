@@ -87,7 +87,6 @@ func (c *Client) SendText(ctx context.Context, msg string, opts ...SendOption) (
 			}
 			returnErr = err
 			close(ch)
-			return
 		}
 
 		err = clientProto.WritePake(ctx, pwStr)
@@ -168,7 +167,7 @@ func (c *Client) SendText(ctx context.Context, msg string, opts ...SendOption) (
 			close(ch)
 			return
 		} else {
-			sendErr(fmt.Errorf("Unexpected answer"))
+			sendErr(fmt.Errorf("unexpected answer"))
 			return
 		}
 	}()
@@ -178,7 +177,7 @@ func (c *Client) SendText(ctx context.Context, msg string, opts ...SendOption) (
 
 func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Reader, opts ...SendOption) (string, chan SendResult, error) {
 	if err := c.validateRelayAddr(); err != nil {
-		return "", nil, fmt.Errorf("Invalid TransitRelayAddress: %s", err)
+		return "", nil, fmt.Errorf("invalid TransitRelayAddress: %s", err)
 	}
 
 	var options sendOptions
@@ -241,7 +240,6 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			}
 			returnErr = err
 			close(ch)
-			return
 		}
 
 		err = clientProto.WritePake(ctx, pwStr)
@@ -305,7 +303,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 
 		transit, err := transport.makeTransitMsg()
 		if err != nil {
-			sendErr(fmt.Errorf("Make transit msg error: %s", err))
+			sendErr(fmt.Errorf("make transit msg error: %s", err))
 			return
 		}
 
@@ -341,7 +339,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		}
 
 		if answer.FileAck != "ok" {
-			sendErr(fmt.Errorf("Unexpected answer"))
+			sendErr(fmt.Errorf("unexpected answer"))
 			return
 		}
 
@@ -402,13 +400,13 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		}
 
 		if ack.Ack != "ok" {
-			sendErr(errors.New("Got non ok final ack from receiver"))
+			sendErr(errors.New("got non ok final ack from receiver"))
 			return
 		}
 
 		shaSum := fmt.Sprintf("%x", hasher.Sum(nil))
 		if strings.ToLower(ack.SHA256) != shaSum {
-			sendErr(fmt.Errorf("Receiver sha256 mismatch %s vs %s", ack.SHA256, shaSum))
+			sendErr(fmt.Errorf("receiver sha256 mismatch %s vs %s", ack.SHA256, shaSum))
 			return
 		}
 
@@ -416,7 +414,6 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			OK: true,
 		}
 		close(ch)
-		return
 	}()
 
 	return pwStr, ch, nil
@@ -427,7 +424,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 // and an error if one occurred.
 func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker, opts ...SendOption) (string, chan SendResult, error) {
 	if err := c.validateRelayAddr(); err != nil {
-		return "", nil, fmt.Errorf("Invalid TransitRelayAddress: %s", err)
+		return "", nil, fmt.Errorf("invalid TransitRelayAddress: %s", err)
 	}
 
 	size, err := readSeekerSize(r)
@@ -509,7 +506,7 @@ func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, err
 	}
 
 	if len(entries) < 1 {
-		return nil, errors.New("No files provided")
+		return nil, errors.New("no files provided")
 	}
 
 	defer os.Remove(f.Name())
@@ -529,7 +526,7 @@ func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, err
 
 	for _, entry := range entries {
 		if !strings.HasPrefix(entry.Path, directoryName+"/") {
-			return nil, errors.New("Each directory entry must be prefixed with the directoryName")
+			return nil, errors.New("each directory entry must be prefixed with the directoryName")
 		}
 
 		header := &zip.FileHeader{
@@ -635,7 +632,7 @@ func validateCode(code string) error {
 		return err
 	}
 	if strings.Contains(code, " ") {
-		return errors.New("Code must not contain spaces")
+		return errors.New("code must not contain spaces")
 	}
 	return nil
 }
