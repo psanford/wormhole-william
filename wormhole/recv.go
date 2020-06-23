@@ -41,7 +41,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	if err != nil {
 		return nil, err
 	}
-	nameplate, err := nameplaceFromCode(code)
+	nameplate, err := nameplateFromCode(code)
 	if err != nil {
 		return nil, err
 	}
