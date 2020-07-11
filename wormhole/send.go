@@ -525,12 +525,15 @@ func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, err
 	var totalBytes int64
 
 	for _, entry := range entries {
-		if !strings.HasPrefix(entry.Path, directoryName+"/") {
+		entryPath := filepath.ToSlash(entry.Path)
+		prefixPath := filepath.ToSlash(directoryName) + "/"
+
+		if !strings.HasPrefix(entryPath, prefixPath) {
 			return nil, errors.New("each directory entry must be prefixed with the directoryName")
 		}
 
 		header := &zip.FileHeader{
-			Name:   strings.TrimPrefix(entry.Path, directoryName+"/"),
+			Name:   strings.TrimPrefix(entryPath, prefixPath),
 			Method: zip.Deflate,
 		}
 		header.SetMode(entry.Mode)
