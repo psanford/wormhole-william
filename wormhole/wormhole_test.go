@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -322,14 +323,14 @@ func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
 
 	entries := []DirectoryEntry{
 		{
-			Path: "skyjacking/personalize.txt",
+			Path: filepath.Join("skyjacking", "personalize.txt"),
 			Reader: func() (io.ReadCloser, error) {
 				b := bytes.NewReader(personalizeContent)
 				return ioutil.NopCloser(b), nil
 			},
 		},
 		{
-			Path: "skyjacking/bodice-Maytag.txt",
+			Path: filepath.Join("skyjacking", "bodice-Maytag.txt"),
 			Reader: func() (io.ReadCloser, error) {
 				b := bytes.NewReader(bodiceContent)
 				return ioutil.NopCloser(b), nil
