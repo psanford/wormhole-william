@@ -4,11 +4,12 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 3
     strategy:
       matrix:
-        go-version: [1.13.11, 1.14.3]
+        go-version: [1.13.12, 1.14.4, 1.15beta1]
+        os: [ubuntu-latest, windows-latest]
 
     steps:
     - name: Set up Go
@@ -28,6 +29,8 @@ jobs:
 
     - name: Cross test for i386
       run: env GOOS=linux GOARCH=386 go test -v ./... --timeout 60s
+      if: ${{ runner.os == 'Linux' }}
 
     - name: Cross compile for arm (RPI)
       run: env GOOS=linux GOARCH=arm GOARM=5 go build -v ./...
+      if: ${{ runner.os == 'Linux' }}
