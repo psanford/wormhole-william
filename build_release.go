@@ -20,24 +20,28 @@ import (
 type target struct {
 	goos  string
 	garch string
+	goarm string
 }
 
 func (t *target) binaryName() string {
-	tmpl := "wormhole-william-%s-%s%s"
 	ext := ""
 	if t.goos == "windows" {
 		ext = ".exe"
 	}
 
-	return fmt.Sprintf(tmpl, t.goos, t.garch, ext)
+	tmpl := "wormhole-william-%s-%s%s%s"
+	return fmt.Sprintf(tmpl, t.goos, t.garch, t.goarm, ext)
 }
 
 var targets = []target{
-	{"linux", "amd64"},
-	{"linux", "arm64"},
-	{"darwin", "amd64"},
-	{"windows", "386"},
-	{"freebsd", "amd64"},
+	{"linux", "amd64", ""},
+	{"linux", "arm64", ""},
+	{"linux", "arm", "5"},
+	{"linux", "arm", "6"},
+	{"linux", "arm", "7"},
+	{"darwin", "amd64", ""},
+	{"windows", "386", ""},
+	{"freebsd", "amd64", ""},
 }
 
 func main() {
@@ -46,6 +50,9 @@ func main() {
 	for _, t := range targets {
 		cmd := exec.Command("go", "build", "-o", filepath.Join("release", t.binaryName()))
 		env := []string{"GOOS=" + t.goos, "GARCH=" + t.garch, "GO111MODULE=on"}
+		if t.goarm != "" {
+			env = append(env, "GOARM="+t.goarm)
+		}
 		cmd.Env = append(os.Environ(), env...)
 
 		fmt.Printf("run: %s %s %s\n", strings.Join(env, " "), cmd.Path, strings.Join(cmd.Args, " "))
