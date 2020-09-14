@@ -49,13 +49,13 @@ func main() {
 
 	for _, t := range targets {
 		cmd := exec.Command("go", "build", "-o", filepath.Join("release", t.binaryName()))
-		env := []string{"GOOS=" + t.goos, "GARCH=" + t.garch, "GO111MODULE=on"}
+		env := []string{"GOOS=" + t.goos, "GOARCH=" + t.garch, "GO111MODULE=on"}
 		if t.goarm != "" {
 			env = append(env, "GOARM="+t.goarm)
 		}
 		cmd.Env = append(os.Environ(), env...)
 
-		fmt.Printf("run: %s %s %s\n", strings.Join(env, " "), cmd.Path, strings.Join(cmd.Args, " "))
+		fmt.Printf("run: %s %s %s\n", strings.Join(env, " "), cmd.Path, strings.Join(cmd.Args[1:], " "))
 
 		out, err := cmd.CombinedOutput()
 		if err != nil {
