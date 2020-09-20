@@ -161,6 +161,15 @@ func (c *Client) SendText(ctx context.Context, msg string, opts ...SendOption) (
 		}
 
 		if answer.MessageAck == "ok" {
+			if options.progressFunc != nil {
+				// If called WithProgress, send a single progress update
+				// showing that the transfer is complete. This is to simplify
+				// client implementations that share code between the Send()
+				// and SendText() code paths.
+				msgSize := int64(len(msg))
+				options.progressFunc(msgSize, msgSize)
+			}
+
 			ch <- SendResult{
 				OK: true,
 			}
@@ -657,9 +666,14 @@ func (o progressSendOption) setOption(opts *sendOptions) error {
 	return nil
 }
 
-// WithProgress returns a SendOption to track the progress of
-// the data transfer. It takes a callback function that will
-// be called for each chunk of data successfully written.
+// WithProgress returns a SendOption to track the progress of the data
+// transfer. It takes a callback function that will be called for each
+// chunk of data successfully written.
+//
+// WithProgress is only minimally supported in SendText. SendText does
+// not use the wormhole transit protocol so it is not able to detect
+// the progress of the receiver. This limitation does not apply to
+// SendFile or SendDirectory.
 func WithProgress(f func(sentBytes int64, totalBytes int64)) SendOption {
 	return progressSendOption{f}
 }

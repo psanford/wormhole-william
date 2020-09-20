@@ -92,6 +92,61 @@ func TestWormholeSendRecvText(t *testing.T) {
 	if c0Verifier != c1Verifier {
 		t.Fatalf("Expected verifiers to match but were different")
 	}
+
+	// Send with progress
+	// we should get one update for progress when we get the ok
+	// result back from the receiver
+	secretText = "retrospectives-𐄷-cropper"
+	var (
+		progressSentBytes  int64
+		progressTotalBytes int64
+		progressCallCount  int
+	)
+	progressFunc := func(sentBytes int64, totalBytes int64) {
+		progressCallCount++
+		progressSentBytes = sentBytes
+		progressTotalBytes = totalBytes
+	}
+	code, statusChan, err = c0.SendText(ctx, secretText, WithProgress(progressFunc))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// recv with correct code
+	msg, err = c1.Receive(ctx, code)
+	if err != nil {
+		t.Fatalf("Recv side got unexpected err: %s", err)
+	}
+
+	msgBody, err = ioutil.ReadAll(msg)
+	if err != nil {
+		t.Fatalf("Recv side got read err: %s", err)
+	}
+
+	if string(msgBody) != secretText {
+		t.Fatalf("Got Message does not match sent secret got=%s sent=%s", msgBody, secretText)
+	}
+
+	status = <-statusChan
+	if !status.OK || status.Error != nil {
+		t.Fatalf("Send side expected OK status but got: %+v", status)
+	}
+
+	if c0Verifier != c1Verifier {
+		t.Fatalf("Expected verifiers to match but were different")
+	}
+
+	if progressCallCount != 1 {
+		t.Fatalf("progressCallCount got %d expected 1",progressCallCount)
+	}
+
+	if progressSentBytes != int64(len(msgBody)) {
+		t.Fatalf("progressSentBytes got %d expected %d", progressSentBytes, int64(len(msgBody)))
+	}
+
+	if progressTotalBytes != int64(len(msgBody)) {
+		t.Fatalf("progressTotalBytes got %d expected %d", progressTotalBytes, int64(len(msgBody)))
+	}
 }
 
 func TestVerifierAbort(t *testing.T) {
