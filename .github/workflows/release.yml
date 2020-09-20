@@ -5,7 +5,6 @@ on:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
     branches:
       - 'test-release-v*' # Push events to matching v*, i.e. v1.0, v20.15.10
-
 jobs:
   build:
     name: Create Release
@@ -31,6 +30,7 @@ jobs:
             const release = await github.repos.createRelease({
               owner, repo,
               tag_name: process.env.GITHUB_REF,
+              name: process.env.GITHUB_REF.split('/')[2],
               draft: true,
               target_commitish: sha
             });
