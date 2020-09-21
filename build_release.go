@@ -35,7 +35,7 @@ func main() {
 	os.MkdirAll("release", 0777)
 
 	for _, t := range targets {
-		cmd := exec.Command("go", "build", "-o", filepath.Join("release", t.binaryName()))
+		cmd := exec.Command("go", "build", "-trimpath", "-o", filepath.Join("release", t.binaryName()))
 		env := []string{"GOOS=" + t.goos, "GOARCH=" + t.garch, "GO111MODULE=on"}
 		if t.goarm != "" {
 			env = append(env, "GOARM="+t.goarm)
