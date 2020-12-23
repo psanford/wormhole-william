@@ -1,7 +1,6 @@
 package wormhole
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/hex"
@@ -15,6 +14,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/klauspost/compress/zip"
 	"github.com/psanford/wormhole-william/rendezvous/rendezvousservertest"
 )
 
@@ -137,7 +137,7 @@ func TestWormholeSendRecvText(t *testing.T) {
 	}
 
 	if progressCallCount != 1 {
-		t.Fatalf("progressCallCount got %d expected 1",progressCallCount)
+		t.Fatalf("progressCallCount got %d expected 1", progressCallCount)
 	}
 
 	if progressSentBytes != int64(len(msgBody)) {
