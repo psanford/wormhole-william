@@ -1,7 +1,6 @@
 package wormhole
 
 import (
-	"archive/zip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -14,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/klauspost/compress/zip"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
 	"github.com/psanford/wormhole-william/wordlist"
