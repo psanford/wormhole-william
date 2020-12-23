@@ -14,7 +14,7 @@ var rootCmd = &cobra.Command{
 	Long: `Create a (magic) Wormhole and communicate through it.
 
   Wormholes are created by speaking the same magic CODE in two different
-  places at the same time.  Wormholes are secure against anyone who doesn't
+  places at the same time. Wormholes are secure against anyone who doesn't
   use the same code.`,
 }
 
