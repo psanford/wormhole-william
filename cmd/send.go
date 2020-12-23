@@ -156,9 +156,7 @@ func sendDir(dirpath string) {
 	var entries []wormhole.DirectoryEntry
 
 	filepath.Walk(dirpath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		} else if info.IsDir() || !info.Mode().IsRegular() {
+		if info.IsDir() || !info.Mode().IsRegular() {
 			return nil
 		}
 
