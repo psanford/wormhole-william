@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"archive/zip"
 	"bufio"
 	"context"
 	"fmt"
@@ -15,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/cheggaaa/pb/v3"
+	"github.com/klauspost/compress/zip"
 	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/spf13/cobra"
 )
