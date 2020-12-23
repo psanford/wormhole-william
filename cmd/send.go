@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/cheggaaa/pb/v3"
@@ -155,18 +156,18 @@ func sendDir(dirpath string) {
 	var entries []wormhole.DirectoryEntry
 
 	filepath.Walk(dirpath, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
+		if err != nil {
+			return err
+		} else if info.IsDir() || !info.Mode().IsRegular() {
 			return nil
 		}
 
-		if !info.Mode().IsRegular() {
-			return nil
+		if runtime.GOOS == "windows" {
+			path = filepath.ToSlash(path)
 		}
-
-		relPath := strings.TrimPrefix(path, prefix)
 
 		entries = append(entries, wormhole.DirectoryEntry{
-			Path: relPath,
+			Path: strings.TrimPrefix(path, prefix),
 			Mode: info.Mode(),
 			Reader: func() (io.ReadCloser, error) {
 				return os.Open(path)
