@@ -130,4 +130,7 @@ func recvText(code string) {
 ```
 
 See the [cli tool](https://github.com/psanford/wormhole-william/tree/master/cmd) and [examples](https://github.com/psanford/wormhole-william/tree/master/examples) directory for working examples of how to use the API to send and receive text, files and directories.
-There is also an unofficial graphical interface called [wormhole-gui](https://github.com/Jacalz/wormhole-gui).
+
+## Third Party Users of Wormhole William
+
+- [wormhole-gui](https://github.com/Jacalz/wormhole-gui): A Magic Wormhole graphical user interface
