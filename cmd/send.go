@@ -13,7 +13,7 @@ import (
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/psanford/wormhole-william/wormhole"
-	"github.com/spf13/cobra"
+	"github.com/urfave/cli/v2"
 )
 
 var (
@@ -22,40 +22,42 @@ var (
 	sendTextFlag string
 )
 
-func sendCommand() *cobra.Command {
-	cmd := cobra.Command{
-		Use:   "send [WHAT]",
-		Short: "Send a text message, file, or directory...",
-		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) == 0 {
-				sendText()
-				return
-			} else if len(args) > 1 {
-				bail("Too many arguments")
-			}
-
-			stat, err := os.Stat(args[0])
-			if err != nil {
-				bail("Failed to read %s: %s", args[0], err)
-			}
-
-			if stat.IsDir() {
-				sendDir(args[0])
-				return
-			} else {
-				sendFile(args[0])
-				return
-			}
+func sendCommand() *cli.Command {
+	return &cli.Command{
+		Name:    "send",
+		Aliases: []string{"recv"},
+		Usage:   "Send a text message, file, or directory...",
+		Action:  sendAction,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:        "verify",
+				Aliases:     []string{"v"},
+				Usage:       "display verification string (and wait for approval)",
+				Destination: &verify,
+			},
+			&cli.BoolFlag{
+				Name:        "hide-progress",
+				Usage:       "do not show progress-bar display",
+				Destination: &hideProgressBar,
+			},
+			&cli.IntFlag{
+				Name:        "code-length",
+				Aliases:     []string{"c"},
+				Usage:       "length of code (in bytes/words)",
+				Destination: &codeLen,
+			},
+			&cli.StringFlag{
+				Name:        "code",
+				Usage:       "human-generated code phrase",
+				Destination: &codeFlag,
+			},
+			&cli.StringFlag{
+				Name:        "text",
+				Usage:       "text message to send, instead of a file. Use '-' to read from stdin",
+				Destination: &codeFlag,
+			},
 		},
 	}
-
-	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
-	cmd.Flags().IntVarP(&codeLen, "code-length", "c", 0, "length of code (in bytes/words)")
-	cmd.Flags().StringVar(&codeFlag, "code", "", "human-generated code phrase")
-	cmd.Flags().StringVar(&sendTextFlag, "text", "", "text message to send, instead of a file.\nUse '-' to read from stdin")
-	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
-
-	return &cmd
 }
 
 func newClient() wormhole.Client {
@@ -77,6 +79,29 @@ func newClient() wormhole.Client {
 	}
 
 	return c
+}
+
+func sendAction(cmd *cli.Context) error {
+	args := cmd.Args().Slice()
+	if len(args) == 0 {
+		sendText()
+		return nil
+	} else if len(args) > 1 {
+		bail("Too many arguments")
+	}
+
+	stat, err := os.Stat(args[0])
+	if err != nil {
+		bail("Failed to read %s: %s", args[0], err)
+	}
+
+	if stat.IsDir() {
+		sendDir(args[0])
+		return nil
+	}
+
+	sendFile(args[0])
+	return nil
 }
 
 func printInstructions(code string) {

@@ -7,37 +7,46 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/psanford/wormhole-william/wormhole"
-	"github.com/spf13/cobra"
+	"github.com/urfave/cli/v2"
 )
 
-func recvCommand() *cobra.Command {
-	cmd := cobra.Command{
-		Use:     "receive [OPTIONS] [CODE]...",
+func recvCommand() *cli.Command {
+	return &cli.Command{
+		Name:    "receive",
 		Aliases: []string{"recv"},
-		Short:   "Receive a text message, file, or directory...",
-		Run:     recvAction,
+		Usage:   "Receive a text message, file, or directory...",
+		Action:  recvAction,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:        "verify",
+				Aliases:     []string{"v"},
+				Usage:       "display verification string (and wait for approval)",
+				Destination: &verify,
+			},
+			&cli.BoolFlag{
+				Name:        "hide-progress",
+				Aliases:     []string{"h"},
+				Usage:       "do not show progress-bar display",
+				Destination: &hideProgressBar,
+			},
+		},
 	}
-
-	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
-	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
-
-	return &cmd
 }
 
-func recvAction(cmd *cobra.Command, args []string) {
+func recvAction(cmd *cli.Context) error {
 	var (
 		code string
 		c    = newClient()
 		ctx  = context.Background()
 	)
 
+	args := cmd.Args().Slice()
 	if len(args) > 0 {
 		code = args[0]
 	}
@@ -62,25 +71,25 @@ func recvAction(cmd *cobra.Command, args []string) {
 
 	msg, err := c.Receive(ctx, code)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	switch msg.Type {
 	case wormhole.TransferText:
 		body, err := ioutil.ReadAll(msg)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		fmt.Println(string(body))
 	case wormhole.TransferFile:
 		var acceptFile bool
 		if _, err := os.Stat(msg.Name); err == nil {
-			msg.Reject()
 			errf("Error refusing to overwrite existing '%s'", msg.Name)
+			return msg.Reject()
 		} else if !os.IsNotExist(err) {
-			msg.Reject()
 			errf("Error stat'ing existing '%s'\n", msg.Name)
+			return msg.Reject()
 		} else {
 			reader := bufio.NewReader(os.Stdin)
 			fmt.Printf("Receiving file (%s) into: %s\n", formatBytes(msg.TransferBytes64), msg.Name)
@@ -239,6 +248,8 @@ func recvAction(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
+
+	return nil
 }
 
 func errf(msg string, args ...interface{}) {

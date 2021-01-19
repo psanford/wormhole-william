@@ -1,1 +1,11 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 release/
+wormhole-william
+
+# Test binary, built with `go test -c`
+*.test
