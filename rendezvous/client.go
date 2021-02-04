@@ -10,7 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/gorilla/websocket"
+	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
 	"github.com/psanford/wormhole-william/version"
@@ -132,7 +133,7 @@ func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
 	}
 
 	var err error
-	c.wsClient, _, err = websocket.DefaultDialer.Dial(c.url, nil)
+	c.wsClient, _, err = websocket.Dial(ctx, c.url, nil)
 	if err != nil {
 		wrappedErr := fmt.Errorf("dial %s: %s", c.url, err)
 		c.closeWithError(wrappedErr)
@@ -422,7 +423,7 @@ func (c *Client) Close(ctx context.Context, mood Mood) error {
 
 	defer func() {
 		if c.wsClient != nil {
-			c.wsClient.Close()
+			c.wsClient.Close(websocket.StatusNormalClosure, "")
 			c.wsClient = nil
 		}
 	}()
@@ -452,7 +453,7 @@ func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*msgs.Ack, e
 	}
 
 	c.sendCmdMu.Lock()
-	err = c.wsClient.WriteJSON(msg)
+	err = wsjson.Write(ctx, c.wsClient, msg)
 	if err != nil {
 		c.sendCmdMu.Unlock()
 		return nil, err
@@ -623,7 +624,7 @@ func (c *Client) readMessages(ctx context.Context) {
 			break
 		}
 
-		_, msg, err := c.wsClient.ReadMessage()
+		_, msg, err := c.wsClient.Read(ctx)
 		if err != nil {
 			wrappedErr := fmt.Errorf("WS Read: %s", err)
 			c.closeWithError(wrappedErr)
