@@ -82,9 +82,8 @@ func NewClient(this js.Value, args []js.Value) interface{} {
 	return clientPtr
 }
 
-func Client_SendText(this js.Value, args []js.Value) interface{} {
+func Client_SendText(_ js.Value, args []js.Value) interface{} {
 	ctx := context.Background()
-	fmt.Printf("this: %v\n", this)
 
 	return NewPromise(func(resolve ResolveFn, reject RejectFn) {
 		if len(args) != 2 {
@@ -111,9 +110,8 @@ func Client_SendText(this js.Value, args []js.Value) interface{} {
 	})
 }
 
-func Client_SendFile(this js.Value, args []js.Value) interface{} {
+func Client_SendFile(_ js.Value, args []js.Value) interface{} {
 	ctx := context.Background()
-	fmt.Printf("this: %v\n", this)
 
 	return NewPromise(func(resolve ResolveFn, reject RejectFn) {
 		if len(args) != 3 {
@@ -146,7 +144,7 @@ func Client_SendFile(this js.Value, args []js.Value) interface{} {
 	})
 }
 
-func Client_RecvText(this js.Value, args []js.Value) interface{} {
+func Client_RecvText(_ js.Value, args []js.Value) interface{} {
 	ctx := context.Background()
 
 	return NewPromise(func(resolve ResolveFn, reject RejectFn) {
@@ -177,10 +175,10 @@ func Client_RecvText(this js.Value, args []js.Value) interface{} {
 			}
 			resolve(string(msgBytes))
 		}()
-	}).JSValue()
+	})
 }
 
-func Client_RecvFile(this js.Value, args []js.Value) interface{} {
+func Client_RecvFile(_ js.Value, args []js.Value) interface{} {
 	ctx := context.Background()
 
 	return NewPromise(func(resolve ResolveFn, reject RejectFn) {
@@ -198,16 +196,12 @@ func Client_RecvFile(this js.Value, args []js.Value) interface{} {
 		}
 
 		go func() {
-			fmt.Println("client.Receive...")
 			msg, err := client.Receive(ctx, code)
-			fmt.Println("...done")
 			if err != nil {
-				fmt.Printf("err: %s\n", err)
 				reject(err)
 				return
 			}
 
-			fmt.Println("ioutil.ReadAll...")
 			msgBytes, err := ioutil.ReadAll(msg)
 			if err != nil {
 				reject(err)
@@ -215,15 +209,14 @@ func Client_RecvFile(this js.Value, args []js.Value) interface{} {
 			}
 
 			// TODO: something better!
-			fmt.Println("copying bytes")
 			jsData := js.Global().Get("Uint8Array").New(MAX_FILE_SIZE)
 			js.CopyBytesToJS(jsData, msgBytes)
 			resolve(jsData)
 		}()
-	}).JSValue()
+	})
 }
 
-func Client_free(jsClient js.Value, args []js.Value) interface{} {
+func Client_free(_ js.Value, args []js.Value) interface{} {
 	if len(args) != 1 {
 		return fmt.Errorf("invalid number of arguments: %d. expected: %d", len(args), 2)
 	}

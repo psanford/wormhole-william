@@ -18,6 +18,5 @@ func main() {
 	js.Global().Set("client_recvFile", js.FuncOf(wasm.Client_RecvFile))
 
 	// block to keep the wasm module API available
-	// (see: )
 	<-make(chan bool)
 }
