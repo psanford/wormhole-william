@@ -1,6 +1,7 @@
 package rendezvousservertest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
 )
@@ -100,11 +102,6 @@ type mboxMsg struct {
 	body  string
 }
 
-var wsUpgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
 func prepareServerMsg(msg interface{}) {
 	ptr := reflect.TypeOf(msg)
 
@@ -163,18 +160,20 @@ func serverUnmarshal(m []byte) (interface{}, error) {
 var TestMotd = "ordure-posts"
 
 func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
-	c, err := wsUpgrader.Upgrade(w, r, nil)
+	c, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		panic(err)
 	}
-	defer c.Close()
+	defer c.Close(websocket.StatusInternalError, "testserver: upgrade to websocket mode failed")
+
+	ctx := context.Background()
 
 	var sendMu sync.Mutex
 	sendMsg := func(msg interface{}) {
 		prepareServerMsg(msg)
 		sendMu.Lock()
 		defer sendMu.Unlock()
-		err = c.WriteJSON(msg)
+		err = wsjson.Write(ctx, c, msg)
 		if err != nil {
 			panic(err)
 		}
@@ -215,7 +214,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	for {
-		_, msgBytes, err := c.ReadMessage()
+		_, msgBytes, err := c.Read(ctx)
 		if _, isCloseErr := err.(*websocket.CloseError); err == io.EOF || isCloseErr {
 			break
 		} else if err != nil {
