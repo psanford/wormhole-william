@@ -175,7 +175,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 					bail("Mkdir error for %s: %s\n", msg.Name, err)
 				}
 
-				tmpFile, err := ioutil.TempFile(wd, fmt.Sprintf("%s.zip.tmp", msg.Name))
+				tmpFile, err := ioutil.TempFile(wd, msg.Name+".zip.tmp")
 				if err != nil {
 					bail("Failed to create tempfile: %s", err)
 				}
@@ -191,8 +191,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 					bail("Receive file error: %s", err)
 				}
 
-				tmpFile.Seek(0, io.SeekStart)
-				zr, err := zip.NewReader(tmpFile, int64(n))
+				zr, err := zip.NewReader(tmpFile, n)
 				if err != nil {
 					bail("Read zip error: %s", err)
 				}
@@ -218,7 +217,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 						bail("Failed to mkdirall %s: %s", dir, err)
 					}
 
-					f, err := os.Create(p)
+					f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, zf.Mode())
 					if err != nil {
 						bail("Failed to open %s: %s", p, err)
 					}
@@ -237,7 +236,6 @@ func recvAction(cmd *cobra.Command, args []string) {
 				}
 
 				proxyReader.Close()
-
 			}
 		}
 	}
