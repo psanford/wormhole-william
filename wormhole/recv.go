@@ -275,7 +275,7 @@ type IncomingMessage struct {
 	readErr error
 }
 
-// Read the decripted contents sent to this client.
+// Read the decrypted contents sent to this client.
 func (f *IncomingMessage) Read(p []byte) (int, error) {
 	if f.readErr != nil {
 		return 0, f.readErr
