@@ -27,7 +27,9 @@ func NewPromise(fn PromiseFn) *Promise {
 			obj.Call("reject", err.Error())
 		}
 
-		fn(resolve, reject)
+		go func() {
+			fn(resolve, reject)
+		}()
 		return nil
 	})
 	jsPromise := js.Global().Get("Promise").New(constructor)
