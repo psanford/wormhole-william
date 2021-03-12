@@ -365,8 +365,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		recordSlice := make([]byte, recordSize-secretbox.Overhead)
 		hasher := sha256.New()
 
-		var progress int64
-		var totalSize int64
+		var progress, totalSize int64
 		if offer.File != nil {
 			totalSize = offer.File.FileSize
 		} else if offer.Directory != nil {
@@ -382,7 +381,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 					sendErr(err)
 					return
 				}
-				progress = progress + int64(n)
+				progress += int64(n)
 				if options.progressFunc != nil {
 					options.progressFunc(progress, totalSize)
 				}
@@ -428,9 +427,8 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 	return pwStr, ch, nil
 }
 
-// SendFile sends a single file via the wormhole protocol. It returns a nameplate+passhrase code to give to the
-// receiver, a result channel that will be written to after the receiver attempts to read (either successfully or not)
-// and an error if one occurred.
+// SendFile sends a single file via the wormhole protocol. It returns a nameplate+passhrase code to give to the receiver,
+// a result channel that will be written to after the receiver attempts to read (either successfully or not) and an error if one occurred.
 func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker, opts ...SendOption) (string, chan SendResult, error) {
 	if err := c.validateRelayAddr(); err != nil {
 		return "", nil, fmt.Errorf("invalid TransitRelayAddress: %s", err)
@@ -524,8 +522,7 @@ func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, err
 		return nil, errors.New("directoryName must be set")
 	}
 
-	prefix, _ := filepath.Split(directoryName)
-	if prefix != "" {
+	if prefix, _ := filepath.Split(directoryName); prefix != "" {
 		return nil, errors.New("directoryName must not include sub directories")
 	}
 
@@ -533,9 +530,10 @@ func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, err
 
 	var totalBytes int64
 
+	prefixPath := filepath.ToSlash(directoryName) + "/"
+
 	for _, entry := range entries {
 		entryPath := filepath.ToSlash(entry.Path)
-		prefixPath := filepath.ToSlash(directoryName) + "/"
 
 		if !strings.HasPrefix(entryPath, prefixPath) {
 			return nil, errors.New("each directory entry must be prefixed with the directoryName")
@@ -545,24 +543,25 @@ func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, err
 			Name:   strings.TrimPrefix(entryPath, prefixPath),
 			Method: zip.Deflate,
 		}
+
 		header.SetMode(entry.Mode)
+
 		f, err := w.CreateHeader(header)
 		if err != nil {
 			return nil, err
 		}
+
 		r, err := entry.Reader()
 		if err != nil {
 			return nil, err
 		}
 
-		var counter countWriter
-
-		_, err = io.Copy(f, io.TeeReader(r, &counter))
+		n, err := io.Copy(f, r)
 		if err != nil {
 			return nil, err
 		}
 
-		totalBytes = totalBytes + counter.count
+		totalBytes += n
 
 		err = r.Close()
 		if err != nil {
@@ -579,6 +578,7 @@ func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, err
 	if err != nil {
 		return nil, err
 	}
+
 	result := zipResult{
 		file:     f,
 		numBytes: totalBytes,
@@ -587,15 +587,6 @@ func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, err
 	}
 
 	return &result, nil
-}
-
-type countWriter struct {
-	count int64
-}
-
-func (c *countWriter) Write(p []byte) (int, error) {
-	c.count = c.count + int64(len(p))
-	return len(p), nil
 }
 
 func readSeekerSize(r io.ReadSeeker) (int64, error) {
