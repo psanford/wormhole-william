@@ -42,6 +42,8 @@ func NewServer() *TestServer {
 }
 
 func (ts *TestServer) Agents() [][]string {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 	return ts.agents
 }
 
@@ -229,14 +231,14 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 
 		switch m := msg.(type) {
 		case *msgs.Bind:
-			ackMsg(m.ID)
-
 			if sideID != "" {
+				ackMsg(m.ID)
 				errMsg(m.ID, m, fmt.Errorf("already bound"))
 				continue
 			}
 
 			if m.Side == "" {
+				ackMsg(m.ID)
 				errMsg(m.ID, m, fmt.Errorf("bind requires 'side'"))
 				continue
 			}
@@ -244,8 +246,9 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			ts.mu.Lock()
 			ts.agents = append(ts.agents, m.ClientVersion)
 			ts.mu.Unlock()
-
 			sideID = m.Side
+
+			ackMsg(m.ID)
 		case *msgs.Allocate:
 			ackMsg(m.ID)
 

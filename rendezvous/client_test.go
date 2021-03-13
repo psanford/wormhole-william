@@ -33,7 +33,7 @@ func TestBasicClient(t *testing.T) {
 
 	gotAgents := ts.Agents()
 	expectAgents := [][]string{
-		[]string{version.AgentString, version.AgentVersion},
+		{version.AgentString, version.AgentVersion},
 	}
 
 	if !reflect.DeepEqual(gotAgents, expectAgents) {
@@ -131,7 +131,7 @@ func TestCustomUserAgent(t *testing.T) {
 
 	gotAgents := ts.Agents()
 	expectAgents := [][]string{
-		[]string{agentString, agentVersion},
+		{agentString, agentVersion},
 	}
 
 	if !reflect.DeepEqual(gotAgents, expectAgents) {
