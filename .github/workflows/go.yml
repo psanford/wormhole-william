@@ -8,7 +8,7 @@ jobs:
     timeout-minutes: 3
     strategy:
       matrix:
-        go-version: [1.14.9, 1.15.2]
+        go-version: [1.15.10, 1.16.2]
         os: [ubuntu-latest, windows-latest]
 
     steps:
