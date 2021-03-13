@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cheggaaa/pb/v3"
+	qrterminal "github.com/mdp/qrterminal/v3"
 	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/spf13/cobra"
 )
@@ -20,6 +21,7 @@ var (
 	codeLen      int
 	codeFlag     string
 	sendTextFlag string
+	showQRCode   bool
 )
 
 func sendCommand() *cobra.Command {
@@ -54,6 +56,7 @@ func sendCommand() *cobra.Command {
 	cmd.Flags().StringVar(&codeFlag, "code", "", "human-generated code phrase")
 	cmd.Flags().StringVar(&sendTextFlag, "text", "", "text message to send, instead of a file.\nUse '-' to read from stdin")
 	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
+	cmd.Flags().BoolVar(&showQRCode, "qr", false, "display code as QR code (experimental)")
 
 	return &cmd
 }
@@ -90,6 +93,15 @@ func printInstructions(code string) {
 
 	fmt.Printf("On the other computer, please run: %s (or %s)\n", mwCmd, wwCmd)
 	fmt.Printf("Wormhole code is: %s\n", code)
+
+	if showQRCode {
+		url := relayURL
+		if url == "" {
+			url = wormhole.DefaultRendezvousURL
+		}
+		content := fmt.Sprintf("wormhole:%s?code=%s", url, code)
+		qrterminal.Generate(content, qrterminal.L, os.Stdout)
+	}
 }
 
 func sendFile(filename string) {
