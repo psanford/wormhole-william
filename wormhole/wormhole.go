@@ -301,14 +301,14 @@ type msgCollector struct {
 
 	closeMu sync.Mutex
 	closed  bool
-	done    chan struct{}
+	done    chan error
 }
 
 func newMsgCollector(sharedKey []byte) *msgCollector {
 	return &msgCollector{
 		sharedKey: sharedKey,
 		subscribe: make(chan *collectSubscription),
-		done:      make(chan struct{}),
+		done:      make(chan error, 1),
 	}
 }
 
@@ -317,6 +317,16 @@ func (c *msgCollector) close() {
 	defer c.closeMu.Unlock()
 	if !c.closed {
 		c.closed = true
+		close(c.done)
+	}
+}
+
+func (c *msgCollector) closeWithErr(err error) {
+	c.closeMu.Lock()
+	defer c.closeMu.Unlock()
+	if !c.closed {
+		c.closed = true
+		c.done <- err
 		close(c.done)
 	}
 }
@@ -331,7 +341,10 @@ func (c *msgCollector) waitFor(msg collectable) error {
 	}
 
 	select {
-	case <-c.done:
+	case err := <-c.done:
+		if err != nil {
+			return err
+		}
 		return errors.New("msgCollector closed")
 	case c.subscribe <- &sub:
 	}
@@ -364,7 +377,8 @@ func (c *msgCollector) collect(ch <-chan rendezvous.MailboxEvent) {
 	waiters := make(map[collectType]*collectSubscription)
 
 	errorResult := func(e error) {
-		c.close()
+		c.closeWithErr(e)
+
 		for t, waiter := range waiters {
 			waiter.result <- collectResult{
 				err: e,
