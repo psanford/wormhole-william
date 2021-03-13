@@ -32,5 +32,6 @@ func Execute() error {
 
 	rootCmd.AddCommand(recvCommand())
 	rootCmd.AddCommand(sendCommand())
+	rootCmd.AddCommand(completionCommand())
 	return rootCmd.Execute()
 }
