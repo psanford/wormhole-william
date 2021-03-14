@@ -373,6 +373,15 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			totalSize = offer.Directory.ZipSize
 		}
 
+		var cancel func()
+		ctx, cancel = context.WithCancel(ctx)
+		defer cancel()
+
+		go func() {
+			<-ctx.Done()
+			conn.Close()
+		}()
+
 		for {
 			n, err := r.Read(recordSlice)
 			if n > 0 {
