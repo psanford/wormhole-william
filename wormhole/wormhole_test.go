@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"path/filepath"
 	"strings"
@@ -340,6 +341,68 @@ func TestWormholeBigFileTransportSendRecvViaRelayServer(t *testing.T) {
 		t.Fatalf("Mismatch in size between what we are trying to send and what is (our parsed) offer. Expected %v but got %v", fakeBigSize, receiver.TransferBytes64)
 	}
 
+}
+
+func TestWormholeFileTransportRecvMidStreamCancel(t *testing.T) {
+	ctx := context.Background()
+
+	rs := rendezvousservertest.NewServer()
+	defer rs.Close()
+
+	url := rs.WebSocketURL()
+
+	testDisableLocalListener = true
+	defer func() { testDisableLocalListener = false }()
+
+	relayServer := newTestRelayServer()
+	defer relayServer.close()
+
+	var c0 Client
+	c0.RendezvousURL = url
+	c0.TransitRelayAddress = relayServer.addr
+
+	var c1 Client
+	c1.RendezvousURL = url
+	c1.TransitRelayAddress = relayServer.addr
+
+	fileContent := make([]byte, 1<<16)
+	for i := 0; i < len(fileContent); i++ {
+		fileContent[i] = byte(i)
+	}
+
+	buf := bytes.NewReader(fileContent)
+
+	code, resultCh, err := c0.SendFile(ctx, "file.txt", buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	childCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	receiver, err := c1.Receive(childCtx, code)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	initialBuffer := make([]byte, 1<<10)
+
+	_, err = io.ReadFull(receiver, initialBuffer)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cancel()
+
+	_, err = ioutil.ReadAll(receiver)
+	if err == nil {
+		log.Fatalf("Expected read error but got none")
+	}
+
+	result := <-resultCh
+	if result.OK {
+		t.Fatalf("Expected error result but got ok")
+	}
 }
 
 func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
