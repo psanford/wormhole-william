@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"log"
 
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
@@ -347,7 +346,6 @@ func (f *IncomingMessage) readCrypt(p []byte) (int, error) {
 	if len(f.buf) == 0 {
 		rec, err := f.cryptor.readRecord()
 		if err == io.EOF {
-			log.Printf("unexpected eof! reclen=%d totallen=%d", len(rec), f.readCount)
 			f.readErr = io.ErrUnexpectedEOF
 			return 0, f.readErr
 		} else if err != nil {
