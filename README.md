@@ -16,7 +16,7 @@ https://pkg.go.dev/github.com/psanford/wormhole-william/wormhole?tab=doc
 ## CLI Usage
 
 ```
-$ ./wormhole-william send --help
+$ wormhole-william send --help
 Send a text message, file, or directory...
 
 Usage:
@@ -33,7 +33,7 @@ Global Flags:
       --relay-url string   rendezvous relay to use
 
 
-$ ./wormhole-william receive --help
+$ wormhole-william receive --help
 Receive a text message, file, or directory...
 
 Usage:
@@ -51,6 +51,12 @@ Global Flags:
       --relay-url string   rendezvous relay to use
 ```
 
+### CLI tab completion
+
+The wormhole-william CLI supports shell completion, including completing the receive code.
+To enable shell completion follow the instructions from `wormhole-william shell-completion -h`.
+
+
 ## Building the CLI tool
 
 wormhole-william uses go modules so it requires a version of the go tool chain >= 1.11. If you are using a version of go that supports modules you can clone the repo outside of your GOPATH and do a `go build` in the top level directory.
@@ -58,13 +64,7 @@ wormhole-william uses go modules so it requires a version of the go tool chain >
 To just install via the go tool run:
 
 ```
-go get -u github.com/psanford/wormhole-william
-```
-
-If you have Go 1.12+ installed you can fetch/build/run with a single command:
-
-```
-GO111MODULE=on go run github.com/psanford/wormhole-william receive
+go install github.com/psanford/wormhole-william@latest
 ```
 
 ## API Usage
@@ -134,3 +134,4 @@ See the [cli tool](https://github.com/psanford/wormhole-william/tree/master/cmd)
 ## Third Party Users of Wormhole William
 
 - [wormhole-gui](https://github.com/Jacalz/wormhole-gui): A Magic Wormhole graphical user interface
+- [wormhole-william-mobile](https://github.com/psanford/wormhole-william-mobile): Android wormhole-william app
