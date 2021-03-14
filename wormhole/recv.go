@@ -131,6 +131,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 		fr.UncompressedBytes = int(offer.File.FileSize)
 		fr.UncompressedBytes64 = offer.File.FileSize
 		fr.FileCount = 1
+		fr.ctx = ctx
 	} else if offer.Directory != nil {
 		fr.Type = TransferDirectory
 		fr.Name = offer.Directory.Dirname
@@ -139,6 +140,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 		fr.UncompressedBytes = int(offer.Directory.NumBytes)
 		fr.UncompressedBytes64 = offer.Directory.NumBytes
 		fr.FileCount = int(offer.Directory.NumFiles)
+		fr.ctx = ctx
 	} else {
 		return nil, errors.New("got non-file transfer offer")
 	}
@@ -273,6 +275,8 @@ type IncomingMessage struct {
 	sha256    hash.Hash
 
 	readErr error
+
+	ctx context.Context
 }
 
 // Read the decrypted contents sent to this client.
@@ -322,6 +326,14 @@ func (f *IncomingMessage) Reject() error {
 func (f *IncomingMessage) readCrypt(p []byte) (int, error) {
 	if f.readErr != nil {
 		return 0, f.readErr
+	}
+
+	if err := f.ctx.Err(); err != nil {
+		f.readErr = err
+		if f.cryptor != nil {
+			f.cryptor.Close()
+		}
+		return 0, err
 	}
 
 	if !f.transferInitialized {
