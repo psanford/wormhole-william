@@ -27,7 +27,7 @@ Bash:
 
 # ~/.bashrc or ~/.profile
 if which wormhole-william &>/dev/null ; then
-  . <(wormhole-william shell-completion)
+  . <(wormhole-william shell-completion bash)
 fi
 
 Zsh:
