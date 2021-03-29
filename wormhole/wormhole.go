@@ -9,12 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/psanford/wormhole-william/internal"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
 	"golang.org/x/crypto/hkdf"
@@ -33,10 +33,10 @@ type Client struct {
 	// DefaultRendezvousURL will be used.
 	RendezvousURL string
 
-	// TransitRelayAddress is the host:port address to offer
+	// TransitRelayURL is the proto:host:port address to offer
 	// to use for file transfers where direct connections are unavailable.
-	// If empty, DefaultTransitRelayAddress will be used.
-	TransitRelayAddress string
+	// If empty, DefaultTransitRelayURL will be used.
+	TransitRelayURL string
 
 	// PassPhraseComponentLength is the number of words to use
 	// when generating a passprase. Any value less than 2 will
@@ -63,8 +63,8 @@ var (
 	// DefaultRendezvousURL is the default Rendezvous server to use.
 	DefaultRendezvousURL = "ws://relay.magic-wormhole.io:4000/v1"
 
-	// DefaultTransitRelayAddress is the default transit server to ues.
-	DefaultTransitRelayAddress = "transit.magic-wormhole.io:4001"
+	// DefaultTransitRelayURL is the default transit server to ues.
+	DefaultTransitRelayURL = "tcp:transit.magic-wormhole.io:4001"
 )
 
 func (c *Client) url() string {
@@ -89,19 +89,11 @@ func (c *Client) wordCount() int {
 	}
 }
 
-func (c *Client) relayAddr() string {
-	if c.TransitRelayAddress != "" {
-		return c.TransitRelayAddress
+func (c *Client) relayURL() internal.SimpleURL {
+	if c.TransitRelayURL != "" {
+		return internal.MustNewSimpleURL(c.TransitRelayURL)
 	}
-	return DefaultTransitRelayAddress
-}
-
-func (c *Client) validateRelayAddr() error {
-	if c.relayAddr() == "" {
-		return nil
-	}
-	_, _, err := net.SplitHostPort(c.relayAddr())
-	return err
+	return internal.MustNewSimpleURL(DefaultTransitRelayURL)
 }
 
 // SendResult has information about whether or not a Send command was successful.
@@ -268,11 +260,11 @@ type transitAbility struct {
 }
 
 type transitHintsV1 struct {
-	Hostname string               `json:"hostname"`
-	Port     int                  `json:"port"`
+	Hostname string               `json:"hostname,omitempty"`
+	Port     int                  `json:"port,omitempty"`
 	Priority float64              `json:"priority"`
 	Type     string               `json:"type"`
-	Hints    []transitHintsV1Hint `json:"hints"`
+	Hints    []transitHintsV1Hint `json:"hints,omitempty"`
 }
 
 type transitHintsV1Hint struct {
