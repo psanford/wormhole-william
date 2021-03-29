@@ -62,6 +62,10 @@ func sendCommand() *cobra.Command {
 }
 
 func newClient() wormhole.Client {
+	if showQRCode && codeLen == 0 {
+		codeLen = 4
+	}
+
 	c := wormhole.Client{
 		RendezvousURL:             relayURL,
 		PassPhraseComponentLength: codeLen,
