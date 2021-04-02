@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/zip"
+	"github.com/psanford/wormhole-william/internal/crypto"
+	"github.com/psanford/wormhole-william/rendezvous"
 	"github.com/psanford/wormhole-william/rendezvous/rendezvousservertest"
 )
 
@@ -457,6 +459,164 @@ func TestWormholeFileTransportSendMidStreamCancel(t *testing.T) {
 	result := <-resultCh
 	if result.OK {
 		t.Fatal("Expected send resultCh to error but got none")
+	}
+}
+
+func TestPendingSendCancelable(t *testing.T) {
+	ctx := context.Background()
+
+	rs := rendezvousservertest.NewServer()
+	defer rs.Close()
+
+	url := rs.WebSocketURL()
+
+	testDisableLocalListener = true
+	defer func() { testDisableLocalListener = false }()
+
+	relayServer := newTestRelayServer()
+	defer relayServer.close()
+
+	c0 := Client{
+		RendezvousURL:       url,
+		TransitRelayAddress: relayServer.addr,
+	}
+
+	fileContent := make([]byte, 1<<16)
+	for i := 0; i < len(fileContent); i++ {
+		fileContent[i] = byte(i)
+	}
+
+	buf := bytes.NewReader(fileContent)
+
+	childCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	code, resultCh, err := c0.SendFile(childCtx, "file.txt", buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// connect to mailbox to wait for c0 to write its initial message
+	rc := rendezvous.NewClient(url, crypto.RandSideID(), c0.appID())
+
+	_, err = rc.Connect(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer rc.Close(ctx, rendezvous.Happy)
+	nameplate, err := nameplateFromCode(code)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = rc.AttachMailbox(ctx, nameplate)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	msgs := rc.MsgChan(ctx)
+
+	select {
+	case <-msgs:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for c0 to send a message")
+	}
+
+	cancel()
+
+	select {
+	case result := <-resultCh:
+		if result.OK {
+			t.Fatalf("Expected cancellation error but got OK")
+		}
+		if result.Error == nil {
+			t.Fatalf("Expected cancellation error")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("Wait for result timed out")
+	}
+}
+
+func TestPendingRecvCancelable(t *testing.T) {
+	ctx := context.Background()
+
+	rs := rendezvousservertest.NewServer()
+	defer rs.Close()
+
+	url := rs.WebSocketURL()
+
+	testDisableLocalListener = true
+	defer func() { testDisableLocalListener = false }()
+
+	relayServer := newTestRelayServer()
+	defer relayServer.close()
+
+	c0 := Client{
+		RendezvousURL:       url,
+		TransitRelayAddress: relayServer.addr,
+	}
+
+	childCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	code := "87-firetrap-fallacy"
+	resultCh := make(chan error, 1)
+	go func() {
+		_, err := c0.Receive(childCtx, code)
+		resultCh <- err
+	}()
+
+	// wait to see mailbox has been allocated, and then
+	// wait to see PAKE message from receiver
+	rc := rendezvous.NewClient(url, crypto.RandSideID(), c0.appID())
+
+	_, err := rc.Connect(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer rc.Close(ctx, rendezvous.Happy)
+
+	for i := 0; i < 20; i++ {
+		nameplates, err := rc.ListNameplates(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(nameplates) > 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	defer rc.Close(ctx, rendezvous.Happy)
+	nameplate, err := nameplateFromCode(code)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = rc.AttachMailbox(ctx, nameplate)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	msgs := rc.MsgChan(ctx)
+
+	select {
+	case <-msgs:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for c0 to send a message")
+	}
+
+	cancel()
+
+	select {
+	case gotErr := <-resultCh:
+		if gotErr == nil {
+			t.Fatalf("Expected an error but got none")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("Timeout waiting for recv cancel")
 	}
 }
 

@@ -221,7 +221,8 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 		if _, isCloseErr := err.(*websocket.CloseError); err == io.EOF || isCloseErr {
 			break
 		} else if err != nil {
-			panic(err)
+			log.Printf("rendezvousservertest recv err: %s", err)
+			break
 		}
 
 		msg, err := serverUnmarshal(msgBytes)
@@ -288,11 +289,15 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 
 			ts.mu.Lock()
 			mboxID := ts.nameplates[int16(nameplate)]
-			ts.mu.Unlock()
 			if mboxID == "" {
-				errMsg(m.ID, m, fmt.Errorf("no namespaces available"))
-				continue
+				mboxID = crypto.RandHex(20)
+
+				mbox := newMailbox()
+
+				ts.mailboxes[mboxID] = mbox
+				ts.nameplates[int16(nameplate)] = mboxID
 			}
+			ts.mu.Unlock()
 
 			ts.mu.Lock()
 			mbox := ts.mailboxes[mboxID]
@@ -389,6 +394,23 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			ackMsg(m.ID)
 
 			sendMsg(&msgs.ClosedResp{})
+
+		case *msgs.List:
+			ackMsg(m.ID)
+
+			var resp msgs.Nameplates
+
+			ts.mu.Lock()
+			for n := range ts.nameplates {
+				resp.Nameplates = append(resp.Nameplates, struct {
+					ID string `json:"id"`
+				}{
+					strconv.Itoa(int(n)),
+				})
+			}
+			ts.mu.Unlock()
+
+			sendMsg(&resp)
 
 		default:
 			log.Printf("Test server got unexpected message: %v", msg)

@@ -499,9 +499,9 @@ func (cc *clientProtocol) WritePake(ctx context.Context, code string) error {
 	return cc.rc.AddMessage(ctx, "pake", jsonHexMarshal(pm))
 }
 
-func (cc *clientProtocol) ReadPake() error {
+func (cc *clientProtocol) ReadPake(ctx context.Context) error {
 	var pake pakeMsg
-	err := cc.readPlaintext("pake", &pake)
+	err := cc.readPlaintext(ctx, "pake", &pake)
 	if err != nil {
 		return err
 	}
@@ -580,8 +580,13 @@ func (cc *clientProtocol) openAndUnmarshal(phase string, v interface{}) error {
 	return openAndUnmarshal(v, gotMsg, cc.sharedKey)
 }
 
-func (cc *clientProtocol) readPlaintext(phase string, v interface{}) error {
-	gotMsg := <-cc.ch
+func (cc *clientProtocol) readPlaintext(ctx context.Context, phase string, v interface{}) error {
+	var gotMsg rendezvous.MailboxEvent
+	select {
+	case gotMsg = <-cc.ch:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 	if gotMsg.Error != nil {
 		return gotMsg.Error
 	}
