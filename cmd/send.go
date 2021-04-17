@@ -113,6 +113,7 @@ func sendFile(filename string) {
 			if bar == nil {
 				bar = pb.Full.Start64(totalBytes)
 				bar.Set(pb.Bytes, true)
+				bar.Set(pb.SIBytesPrefix, true)
 			}
 			bar.SetCurrent(sentBytes)
 

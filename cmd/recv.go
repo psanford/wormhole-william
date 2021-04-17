@@ -283,6 +283,8 @@ func pbProxyReader(r io.Reader, size int64) io.ReadCloser {
 		return ioutil.NopCloser(r)
 	} else {
 		progressBar := pb.Full.Start64(size)
+		progressBar.Set(pb.Bytes, true)
+		progressBar.Set(pb.SIBytesPrefix, true)
 		proxyReader := progressBar.NewProxyReader(r)
 		return &proxyReadCloser{
 			Reader: proxyReader,
