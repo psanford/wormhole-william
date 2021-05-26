@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/klauspost/compress v1.11.13
 	github.com/spf13/cobra v1.1.3
+	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
 	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c // indirect
 	nhooyr.io/websocket v1.8.6

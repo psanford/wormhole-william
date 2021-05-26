@@ -151,7 +151,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	}
 
 	transitKey := deriveTransitKey(clientProto.sharedKey, appID)
-	transport := newFileTransport(transitKey, appID, c.relayAddr())
+	transport := newFileTransport(transitKey, appID, c.relayURL())
 
 	transitMsg, err := transport.makeTransitMsg()
 	if err != nil {
