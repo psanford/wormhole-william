@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"reflect"
 	"strconv"
 	"strings"
@@ -95,14 +94,6 @@ func (c *Client) relayURL() internal.SimpleURL {
 		return internal.MustNewSimpleURL(c.TransitRelayURL)
 	}
 	return internal.MustNewSimpleURL(DefaultTransitRelayURL)
-}
-
-func (c *Client) validateRelayAddr() error {
-	if c.relayAddr() == "" {
-		return nil
-	}
-	_, _, err := net.SplitHostPort(c.relayAddr())
-	return err
 }
 
 // SendResult has information about whether or not a Send command was successful.
