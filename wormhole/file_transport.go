@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/psanford/wormhole-william/internal"
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -154,18 +155,18 @@ func (d *transportCryptor) writeRecord(msg []byte) error {
 	return err
 }
 
-func newFileTransport(transitKey []byte, appID, relayAddr string) *fileTransport {
+func newFileTransport(transitKey []byte, appID string, relayURL internal.SimpleURL) *fileTransport {
 	return &fileTransport{
 		transitKey: transitKey,
 		appID:      appID,
-		relayAddr:  relayAddr,
+		relayURL:   relayURL,
 	}
 }
 
 type fileTransport struct {
 	listener   net.Listener
 	relayConn  net.Conn
-	relayAddr  string
+	relayURL   internal.SimpleURL
 	transitKey []byte
 	appID      string
 }
@@ -252,6 +253,7 @@ func (t *fileTransport) connectDirect(otherTransit *transitMsg) (net.Conn, error
 
 func (t *fileTransport) connectToRelay(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
 	var d net.Dialer
+	addr := t.relayURL.Addr()
 	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		failChan <- addr
@@ -295,6 +297,7 @@ func (t *fileTransport) connectToSingleHost(ctx context.Context, addr string, su
 func (t *fileTransport) directRecvHandshake(ctx context.Context, addr string, conn net.Conn, successChan chan net.Conn, failChan chan string) {
 	expectHeader := t.senderHandshakeHeader()
 
+	addr := t.relayURL.Addr()
 	gotHeader := make([]byte, len(expectHeader))
 
 	_, err := io.ReadFull(conn, gotHeader)
@@ -372,24 +375,15 @@ func (t *fileTransport) makeTransitMsg() (*transitMsg, error) {
 	}
 
 	if t.relayConn != nil {
-		relayHost, portStr, err := net.SplitHostPort(t.relayAddr)
-		if err != nil {
-			return nil, err
 		}
-
-		relayPort, err := strconv.Atoi(portStr)
-		if err != nil {
-			return nil, fmt.Errorf("port isn't an integer? %s", portStr)
-		}
-
 		msg.HintsV1 = append(msg.HintsV1, transitHintsV1{
 			Type: "relay-v1",
 			Hints: []transitHintsV1Hint{
 				{
 					Type:     "direct-tcp-v1",
 					Priority: 2.0,
-					Hostname: relayHost,
-					Port:     relayPort,
+					Hostname: t.relayURL.Host,
+					Port:     t.relayURL.Port,
 				},
 			},
 		})
@@ -460,10 +454,8 @@ func (t *fileTransport) listen() error {
 }
 
 func (t *fileTransport) listenRelay() error {
-	if t.relayAddr == "" {
-		return nil
-	}
-	conn, err := net.Dial("tcp", t.relayAddr)
+    addr := t.relayURL.Addr()
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}

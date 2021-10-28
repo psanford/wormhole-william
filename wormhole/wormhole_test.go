@@ -28,7 +28,7 @@ func TestWormholeSendRecvText(t *testing.T) {
 	url := rs.WebSocketURL()
 
 	// disable transit relay
-	DefaultTransitRelayAddress = ""
+	DefaultTransitRelayURL = ""
 
 	var c0Verifier string
 	var c0 Client
@@ -159,7 +159,7 @@ func TestVerifierAbort(t *testing.T) {
 	url := rs.WebSocketURL()
 
 	// disable transit relay
-	DefaultTransitRelayAddress = ""
+	DefaultTransitRelayURL = ""
 
 	var c0 Client
 	c0.RendezvousURL = url
@@ -202,7 +202,7 @@ func TestWormholeFileReject(t *testing.T) {
 	url := rs.WebSocketURL()
 
 	// disable transit relay for this test
-	DefaultTransitRelayAddress = ""
+	DefaultTransitRelayURL = ""
 
 	var c0 Client
 	c0.RendezvousURL = url
@@ -252,11 +252,11 @@ func TestWormholeFileTransportSendRecvViaRelayServer(t *testing.T) {
 
 	var c0 Client
 	c0.RendezvousURL = url
-	c0.TransitRelayAddress = relayServer.addr
+	c0.TransitRelayURL = "tcp:" + relayServer.addr
 
 	var c1 Client
 	c1.RendezvousURL = url
-	c1.TransitRelayAddress = relayServer.addr
+	c1.TransitRelayURL = "tcp:" + relayServer.addr
 
 	fileContent := make([]byte, 1<<16)
 	for i := 0; i < len(fileContent); i++ {
@@ -306,11 +306,11 @@ func TestWormholeBigFileTransportSendRecvViaRelayServer(t *testing.T) {
 
 	var c0 Client
 	c0.RendezvousURL = url
-	c0.TransitRelayAddress = relayServer.addr
+	c0.TransitRelayURL = "tcp:" + relayServer.addr
 
 	var c1 Client
 	c1.RendezvousURL = url
-	c1.TransitRelayAddress = relayServer.addr
+	c1.TransitRelayURL = "tcp:" + relayServer.addr
 
 	// Create a fake file offer
 	var fakeBigSize int64 = 32098461509
@@ -353,16 +353,16 @@ func TestWormholeFileTransportRecvMidStreamCancel(t *testing.T) {
 	testDisableLocalListener = true
 	defer func() { testDisableLocalListener = false }()
 
-	relayServer := newTestRelayServer()
+	relayServer := newTestTCPRelayServer()
 	defer relayServer.close()
 
 	var c0 Client
 	c0.RendezvousURL = url
-	c0.TransitRelayAddress = relayServer.addr
+	c0.TransitRelayURL = relayServer.addr
 
 	var c1 Client
 	c1.RendezvousURL = url
-	c1.TransitRelayAddress = relayServer.addr
+	c1.TransitRelayURL = relayServer.addr
 
 	fileContent := make([]byte, 1<<16)
 	for i := 0; i < len(fileContent); i++ {
@@ -415,16 +415,16 @@ func TestWormholeFileTransportSendMidStreamCancel(t *testing.T) {
 	testDisableLocalListener = true
 	defer func() { testDisableLocalListener = false }()
 
-	relayServer := newTestRelayServer()
+	relayServer := newTestTCPRelayServer()
 	defer relayServer.close()
 
 	var c0 Client
 	c0.RendezvousURL = url
-	c0.TransitRelayAddress = relayServer.addr
+	c0.TransitRelayURL = relayServer.addr
 
 	var c1 Client
 	c1.RendezvousURL = url
-	c1.TransitRelayAddress = relayServer.addr
+	c1.TransitRelayURL = relayServer.addr
 
 	fileContent := make([]byte, 1<<16)
 	for i := 0; i < len(fileContent); i++ {
@@ -469,7 +469,7 @@ func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
 	url := rs.WebSocketURL()
 
 	// disable transit relay for this test
-	DefaultTransitRelayAddress = ""
+	DefaultTransitRelayURL = ""
 
 	var c0Verifier string
 	var c0 Client

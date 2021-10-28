@@ -297,7 +297,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		}
 
 		transitKey := deriveTransitKey(clientProto.sharedKey, appID)
-		transport := newFileTransport(transitKey, appID, c.relayAddr())
+		transport := newFileTransport(transitKey, appID, c.relayURL())
 		err = transport.listen()
 		if err != nil {
 			sendErr(err)
