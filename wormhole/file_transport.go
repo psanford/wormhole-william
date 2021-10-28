@@ -34,6 +34,10 @@ const (
 	TransferText
 )
 
+// UnsupportedProtocolErr is used in the default case of protocol switch
+// statements to account for unexpected protocols.
+var UnsupportedProtocolErr = errors.New("unsupported protocol")
+
 func (tt TransferType) String() string {
 	switch tt {
 	case TransferFile:
@@ -375,12 +379,23 @@ func (t *fileTransport) makeTransitMsg() (*transitMsg, error) {
 	}
 
 	if t.relayConn != nil {
+		// TODO: use an enum
+		var relayType string
+		switch t.relayURL.Proto {
+		case "tcp":
+			relayType = "direct-tcp-v1"
+		case "ws":
+			relayType = "direct-ws-v1"
+		case "wss":
+			relayType = "direct-wss-v1"
+		default:
+			return nil, fmt.Errorf("unknown relay protocol")
 		}
 		msg.HintsV1 = append(msg.HintsV1, transitHintsV1{
 			Type: "relay-v1",
 			Hints: []transitHintsV1Hint{
 				{
-					Type:     "direct-tcp-v1",
+					Type:     relayType,
 					Priority: 2.0,
 					Hostname: t.relayURL.Host,
 					Port:     t.relayURL.Port,
@@ -443,13 +458,20 @@ func (t *fileTransport) listen() error {
 	if testDisableLocalListener {
 		return nil
 	}
+	switch t.relayURL.Proto {
+	case "tcp":
+		l, err := net.Listen("tcp", ":0")
+		if err != nil {
+			return err
+		}
 
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return err
+		t.listener = l
+	case "ws", "wss":
+		t.listener = nil
+	default:
+		return fmt.Errorf("%w: %s", UnsupportedProtocolErr, t.relayURL.Proto)
 	}
 
-	t.listener = l
 	return nil
 }
 
