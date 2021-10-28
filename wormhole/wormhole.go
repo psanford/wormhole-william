@@ -260,11 +260,11 @@ type transitAbility struct {
 }
 
 type transitHintsV1 struct {
-	Hostname string               `json:"hostname"`
-	Port     int                  `json:"port"`
+	Hostname string               `json:"hostname,omitempty"`
+	Port     int                  `json:"port,omitempty"`
 	Priority float64              `json:"priority"`
 	Type     string               `json:"type"`
-	Hints    []transitHintsV1Hint `json:"hints"`
+	Hints    []transitHintsV1Hint `json:"hints,omitempty"`
 }
 
 type transitHintsV1Hint struct {
