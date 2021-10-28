@@ -186,15 +186,12 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 	for _, outerHint := range otherTransit.HintsV1 {
 		if outerHint.Type == "relay-v1" {
 			for _, innerHint := range outerHint.Hints {
-				if innerHint.Type == "direct-tcp-v1" {
-					count++
-					ctx, cancel := context.WithCancel(context.Background())
-					addr := net.JoinHostPort(innerHint.Hostname, strconv.Itoa(innerHint.Port))
+				addr := net.JoinHostPort(innerHint.Hostname, strconv.Itoa(innerHint.Port))
+				ctx, cancel := context.WithCancel(context.Background())
+				cancelFuncs[addr] = cancel
 
-					cancelFuncs[addr] = cancel
-
-					go t.connectToRelay(ctx, addr, successChan, failChan)
-				}
+				count++
+				go t.connectToRelay(ctx, successChan, failChan)
 			}
 		}
 	}
