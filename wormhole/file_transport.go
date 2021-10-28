@@ -251,7 +251,7 @@ func (t *fileTransport) connectDirect(otherTransit *transitMsg) (net.Conn, error
 	return conn, nil
 }
 
-func (t *fileTransport) connectToRelay(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
+func (t *fileTransport) connectToRelay(ctx context.Context, successChan chan net.Conn, failChan chan string) {
 	var d net.Dialer
 	addr := t.relayURL.Addr()
 	conn, err := d.DialContext(ctx, "tcp", addr)
@@ -279,7 +279,7 @@ func (t *fileTransport) connectToRelay(ctx context.Context, addr string, success
 		return
 	}
 
-	t.directRecvHandshake(ctx, addr, conn, successChan, failChan)
+	t.directRecvHandshake(ctx, conn, successChan, failChan)
 }
 
 func (t *fileTransport) connectToSingleHost(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
@@ -291,10 +291,10 @@ func (t *fileTransport) connectToSingleHost(ctx context.Context, addr string, su
 		return
 	}
 
-	t.directRecvHandshake(ctx, addr, conn, successChan, failChan)
+	t.directRecvHandshake(ctx, conn, successChan, failChan)
 }
 
-func (t *fileTransport) directRecvHandshake(ctx context.Context, addr string, conn net.Conn, successChan chan net.Conn, failChan chan string) {
+func (t *fileTransport) directRecvHandshake(ctx context.Context, conn net.Conn, successChan chan net.Conn, failChan chan string) {
 	expectHeader := t.senderHandshakeHeader()
 
 	addr := t.relayURL.Addr()
