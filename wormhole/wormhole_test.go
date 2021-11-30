@@ -453,9 +453,9 @@ func TestWormholeFileTransportSendMidStreamCancel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = ioutil.ReadAll(receiver)
+	gotMsg, err := ioutil.ReadAll(receiver)
 	if err == nil {
-		t.Fatal("Expected read error but got none")
+		t.Fatalf("Expected read error but got none. got msg size: %d, orig_size: %d, cancel_at: %de", len(gotMsg), len(fileContent), splitR.cancelAt)
 	}
 
 	result := <-resultCh
