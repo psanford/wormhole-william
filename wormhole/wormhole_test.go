@@ -9,7 +9,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"testing"
@@ -534,6 +536,8 @@ func TestPendingSendCancelable(t *testing.T) {
 			t.Fatalf("Expected cancellation error")
 		}
 	case <-time.After(5 * time.Second):
+		// log all goroutines
+		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
 		t.Fatalf("Wait for result timed out")
 	}
 }
@@ -616,6 +620,8 @@ func TestPendingRecvCancelable(t *testing.T) {
 			t.Fatalf("Expected an error but got none")
 		}
 	case <-time.After(5 * time.Second):
+		// log all goroutines
+		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
 		t.Fatalf("Timeout waiting for recv cancel")
 	}
 }
