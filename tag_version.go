@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 // This is a tool to assist with tagging versions correctly.
