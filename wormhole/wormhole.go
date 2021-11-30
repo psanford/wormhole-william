@@ -246,8 +246,8 @@ type appVersionsMsg struct {
 }
 
 type answerMsg struct {
-	MessageAck string `json:"message_ack"`
-	FileAck    string `json:"file_ack"`
+	MessageAck string `json:"message_ack,omitempty"`
+	FileAck    string `json:"file_ack,omitempty"`
 }
 
 func (m *answerMsg) Type() collectType {
