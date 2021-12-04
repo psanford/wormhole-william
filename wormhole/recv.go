@@ -1,7 +1,6 @@
 package wormhole
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,6 +9,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"strings"
 
 	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous"
@@ -119,8 +119,14 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 
 		rc.Close(ctx, rendezvous.Happy)
 
+		text := *offer.Message
+		fr.TransferBytes = len(text)
+		fr.TransferBytes64 = int64(fr.TransferBytes)
+		fr.UncompressedBytes = fr.TransferBytes
+		fr.UncompressedBytes64 = fr.TransferBytes64
+
 		fr.Type = TransferText
-		fr.textReader = bytes.NewReader([]byte(*offer.Message))
+		fr.textReader = strings.NewReader(text)
 		return fr, nil
 	} else if offer.File != nil {
 		fr.Type = TransferFile
