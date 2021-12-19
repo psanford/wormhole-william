@@ -7,6 +7,7 @@
 //
 // Instructions for cutting a new release:
 // - Update version/version.go
+// - Update .github/workflows/release.yml with the current go version
 // - Make new git tag (e.g. v1.0.x)
 // - Push tag to github
 // - Github release.yml action will `go run build_release.go` at that tag
