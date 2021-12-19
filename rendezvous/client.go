@@ -213,7 +213,12 @@ func (c *Client) readMsg(ctx context.Context, m interface{}) error {
 	defer c.deregisterWaiter(waiterID)
 
 	for {
-		<-ch
+		select {
+		case <-ch:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
 		msg := c.searchPendingMsgs(ctx, expectMsgType)
 		if msg != nil {
 
