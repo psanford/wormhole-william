@@ -256,17 +256,37 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 // If the Type is TransferDirectory then reading from the IncomingMessage will
 // read a zip file of the contents of the directory.
 type IncomingMessage struct {
+	// Name is the name of the file or directory being transferred.
 	Name string
+	// The type of file transfer being offered.
 	Type TransferType
 	// Deprecated: TransferBytes has been replaced with with TransferBytes64
 	// to allow transfer of >2 GiB files on 32 bit systems
-	TransferBytes   int
+	TransferBytes int
+	// TransferBytes64 is the offered size of the file transfer from the peer.
+	// This is expected to be the number of bytes sent over the network to
+	// perform the file transfer, however a malicious client could lie about this.
+	// The primary purpose of this field is to allow the user to choose to accept
+	// or reject the transfer if the file size is unexpected.
+	//
+	// For client implementation convenience, TransferBytes64 is also set for text messages.
+	// Note that the message has already been fully transferred by the time this value is known.
 	TransferBytes64 int64
 	// Deprecated: UncompressedBytes has been replaced with UncompressedBytes64
 	// to allow transfers of > 2 GiB files on 32 bit systems
-	UncompressedBytes   int
+	UncompressedBytes int
+	// UncompressedBytes64 is the offered size of the files on disk post decompression.
+	// This is sent from the peer as part of the offer and a malicious peer could lie
+	// about this.
+	// The primary purpose of this field is to allow the user to choose to accept
+	// or reject the transfer if the file size is unexpected.
+	//
+	// For client implementation convenience, UncompressedBytes64 is also set for text messages.
+	// Note that the message has already been fully transferred by the time this value is known.
 	UncompressedBytes64 int64
-	FileCount           int
+	// FileCount is the number of files in a TransferDirectory offer. This is sent
+	// as part of the offer from the peer and a malicious peer could lie about this.
+	FileCount int
 
 	textReader io.Reader
 
