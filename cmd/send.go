@@ -104,7 +104,17 @@ func printInstructions(code string) {
 			url = wormhole.DefaultRendezvousURL
 		}
 		content := fmt.Sprintf("wormhole:%s?code=%s", url, code)
-		qrterminal.Generate(content, qrterminal.L, os.Stdout)
+		config := qrterminal.Config{
+			Level: qrterminal.L,
+			Writer: os.Stdout,
+			HalfBlocks: true,
+			BlackChar: qrterminal.BLACK_BLACK,
+			WhiteBlackChar: qrterminal.WHITE_BLACK,
+			WhiteChar: qrterminal.WHITE_WHITE,
+			BlackWhiteChar: qrterminal.BLACK_WHITE,
+			QuietZone: 2,
+		}
+		qrterminal.GenerateWithConfig(content, config)
 	}
 }
 
