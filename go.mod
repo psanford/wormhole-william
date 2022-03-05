@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/cheggaaa/pb/v3 v3.0.8
-	github.com/gorilla/websocket v1.4.2
+	github.com/gorilla/websocket v1.5.0
 	github.com/klauspost/compress v1.15.0
 	github.com/mdp/qrterminal/v3 v3.0.0
 	github.com/spf13/cobra v1.1.3
