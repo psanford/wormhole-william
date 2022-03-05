@@ -8,8 +8,7 @@ require (
 	github.com/klauspost/compress v1.15.0
 	github.com/mdp/qrterminal/v3 v3.0.0
 	github.com/spf13/cobra v1.1.3
-	golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
-	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c // indirect
+	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	nhooyr.io/websocket v1.8.6
 	salsa.debian.org/vasudev/gospake2 v0.0.0-20180813171123-adcc69dd31d5
 )
