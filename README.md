@@ -134,4 +134,7 @@ See the [cli tool](https://github.com/psanford/wormhole-william/tree/master/cmd)
 ## Third Party Users of Wormhole William
 
 - [rymdport](https://github.com/Jacalz/rymdport): A cross-platform Magic Wormhole graphical user interface
+- [riftshare](https://github.com/achhabra2/riftshare): Desktop filesharing app
+- [termshark](https://github.com/gcla/termshark): A terminal UI for tshark
+- [tmux-wormhole](https://github.com/gcla/tmux-wormhole): tmux wormhole integration
 - [wormhole-william-mobile](https://github.com/psanford/wormhole-william-mobile): Android wormhole-william app
