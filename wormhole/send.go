@@ -424,7 +424,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			return
 		}
 
-		shaSum := fmt.Sprintf("%x", hasher.Sum(nil))
+		shaSum := hex.EncodeToString(hasher.Sum(nil))
 		if strings.ToLower(ack.SHA256) != shaSum {
 			sendErr(fmt.Errorf("receiver sha256 mismatch %s vs %s", ack.SHA256, shaSum))
 			return

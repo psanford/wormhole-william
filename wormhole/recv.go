@@ -391,7 +391,7 @@ func (f *IncomingMessage) readCrypt(p []byte) (int, error) {
 		sum := f.sha256.Sum(nil)
 		ack := fileTransportAck{
 			Ack:    "ok",
-			SHA256: fmt.Sprintf("%x", sum),
+			SHA256: hex.EncodeToString(sum),
 		}
 
 		msg, _ := json.Marshal(ack)
