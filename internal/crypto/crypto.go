@@ -2,7 +2,7 @@ package crypto
 
 import (
 	"crypto/rand"
-	"fmt"
+	"encoding/hex"
 	"io"
 )
 
@@ -21,7 +21,7 @@ func RandHex(byteCount int) string {
 		panic(err)
 	}
 
-	return fmt.Sprintf("%x", buf)
+	return hex.EncodeToString(buf)
 }
 
 func RandNonce() [NonceSize]byte {
