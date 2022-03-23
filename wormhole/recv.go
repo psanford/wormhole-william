@@ -127,6 +127,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 
 		fr.Type = TransferText
 		fr.textReader = strings.NewReader(text)
+		fr.transferText = offer.Message
 		return fr, nil
 	} else if offer.File != nil {
 		fr.Type = TransferFile
@@ -288,7 +289,8 @@ type IncomingMessage struct {
 	// as part of the offer from the peer and a malicious peer could lie about this.
 	FileCount int
 
-	textReader io.Reader
+	textReader   io.Reader
+	transferText *string
 
 	transferInitialized bool
 	initializeTransfer  func() error
@@ -318,6 +320,16 @@ func (f *IncomingMessage) Read(p []byte) (int, error) {
 	default:
 		return 0, fmt.Errorf("unknown Receiver type %d", f.Type)
 	}
+}
+
+// GetText returns the whole text directly instead of going through a reader.
+// The returned string will be empty for non-text transfer types.
+func (f *IncomingMessage) GetText() string {
+	if f.Type != TransferText {
+		return ""
+	}
+
+	return *f.transferText
 }
 
 func (f *IncomingMessage) readText(p []byte) (int, error) {
