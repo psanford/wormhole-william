@@ -69,12 +69,15 @@ func recvAction(cmd *cobra.Command, args []string) {
 
 	switch msg.Type {
 	case wormhole.TransferText:
-		body, err := ioutil.ReadAll(msg)
+		_, err := io.Copy(os.Stdout, msg)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		fmt.Println(string(body))
+		_, err = os.Stdout.WriteString("\n")
+		if err != nil {
+			log.Fatal(err)
+		}
 	case wormhole.TransferFile:
 		var acceptFile bool
 		if _, err := os.Stat(msg.Name); err == nil {
