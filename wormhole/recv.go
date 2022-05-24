@@ -369,7 +369,12 @@ func (f *IncomingMessage) readCrypt(p []byte) (int, error) {
 		}
 	}
 
-	if len(f.buf) == 0 {
+	// for empty files the sender doesn't send any records
+	// so we need to short circut the read and proceed straight
+	// to sending an "ok" ack
+	emptyFile := f.TransferBytes64 == 0
+
+	if len(f.buf) == 0 && !emptyFile {
 		rec, err := f.cryptor.readRecord()
 		if err == io.EOF {
 			f.readErr = io.ErrUnexpectedEOF

@@ -733,7 +733,106 @@ func TestWormholeDirectoryTransportSendRecvDirect(t *testing.T) {
 	if c0Verifier != c1Verifier {
 		t.Fatalf("Expected verifiers to match but were different")
 	}
+}
 
+func TestSendRecvEmptyFileDirect(t *testing.T) {
+	ctx := context.Background()
+
+	rs := rendezvousservertest.NewServer()
+	defer rs.Close()
+
+	url := rs.WebSocketURL()
+
+	DefaultTransitRelayAddress = ""
+
+	relayServer := newTestRelayServer()
+	defer relayServer.close()
+
+	var c0 Client
+	c0.RendezvousURL = url
+	c0.TransitRelayAddress = relayServer.addr
+
+	var c1 Client
+	c1.RendezvousURL = url
+	c1.TransitRelayAddress = relayServer.addr
+
+	fileContent := make([]byte, 0)
+	buf := bytes.NewReader(fileContent)
+
+	code, resultCh, err := c0.SendFile(ctx, "file.txt", buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receiver, err := c1.Receive(ctx, code)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ioutil.ReadAll(receiver)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(got, fileContent) {
+		t.Fatalf("File contents mismatch")
+	}
+
+	result := <-resultCh
+	if !result.OK {
+		t.Fatalf("Expected ok result but got: %+v", result)
+	}
+}
+
+func TestSendRecvEmptyFileViaRelay(t *testing.T) {
+	ctx := context.Background()
+
+	rs := rendezvousservertest.NewServer()
+	defer rs.Close()
+
+	url := rs.WebSocketURL()
+
+	testDisableLocalListener = true
+	defer func() { testDisableLocalListener = false }()
+
+	relayServer := newTestRelayServer()
+	defer relayServer.close()
+
+	var c0 Client
+	c0.RendezvousURL = url
+	c0.TransitRelayAddress = relayServer.addr
+
+	var c1 Client
+	c1.RendezvousURL = url
+	c1.TransitRelayAddress = relayServer.addr
+
+	fileContent := make([]byte, 0)
+
+	buf := bytes.NewReader(fileContent)
+
+	code, resultCh, err := c0.SendFile(ctx, "file.txt", buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	receiver, err := c1.Receive(ctx, code)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ioutil.ReadAll(receiver)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(got, fileContent) {
+		t.Fatalf("File contents mismatch")
+	}
+
+	result := <-resultCh
+	if !result.OK {
+		t.Fatalf("Expected ok result but got: %+v", result)
+	}
 }
 
 type testRelayServer struct {
