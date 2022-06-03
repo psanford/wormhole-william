@@ -1,6 +1,6 @@
 module github.com/psanford/wormhole-william
 
-go 1.12
+go 1.13
 
 require (
 	github.com/cheggaaa/pb/v3 v3.0.8
