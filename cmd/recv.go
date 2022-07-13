@@ -199,6 +199,18 @@ func recvAction(cmd *cobra.Command, args []string) {
 					bail("Read zip error: %s", err)
 				}
 
+				// calculate the uncompressed size of the contents of the zip
+				var actualUncompressedSize uint64
+				var fileCount int
+				for _, f := range zr.File {
+					actualUncompressedSize += f.FileHeader.UncompressedSize64
+					fileCount++
+				}
+				if msg.UncompressedBytes64 != int64(actualUncompressedSize) ||
+					msg.FileCount != fileCount {
+					bail("zip error: corrupted zip file")
+				}
+
 				for _, zf := range zr.File {
 					p, err := filepath.Abs(filepath.Join(dirName, zf.Name))
 					if err != nil {
