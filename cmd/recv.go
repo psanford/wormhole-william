@@ -173,7 +173,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 				msg.Reject()
 				bail("transfer rejected")
 			} else {
-				err = os.Mkdir(msg.Name, 0777)
+				err = os.Mkdir(msg.Name, 0755)
 				if err != nil {
 					bail("Mkdir error for %s: %s\n", msg.Name, err)
 				}
@@ -215,7 +215,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 					}
 
 					dir := filepath.Dir(p)
-					err = os.MkdirAll(dir, 0777)
+					err = os.MkdirAll(dir, 0755)
 					if err != nil {
 						bail("Failed to mkdirall %s: %s", dir, err)
 					}
@@ -223,6 +223,11 @@ func recvAction(cmd *cobra.Command, args []string) {
 					f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, zf.Mode())
 					if err != nil {
 						bail("Failed to open %s: %s", p, err)
+					}
+					mode := zf.Mode()
+					err = os.Chmod(p, mode)
+					if err != nil {
+						bail("error setting mode for %s: %s", p, err)
 					}
 
 					_, err = io.Copy(f, rc)
