@@ -173,7 +173,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 				msg.Reject()
 				bail("transfer rejected")
 			} else {
-				err = os.Mkdir(msg.Name, 0755)
+				err = os.Mkdir(msg.Name, 0700)
 				if err != nil {
 					bail("Mkdir error for %s: %s\n", msg.Name, err)
 				}
@@ -215,7 +215,7 @@ func recvAction(cmd *cobra.Command, args []string) {
 					}
 
 					dir := filepath.Dir(p)
-					err = os.MkdirAll(dir, 0755)
+					err = os.MkdirAll(dir, 0700)
 					if err != nil {
 						bail("Failed to mkdirall %s: %s", dir, err)
 					}
