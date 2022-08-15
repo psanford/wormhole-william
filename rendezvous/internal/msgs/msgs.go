@@ -7,6 +7,10 @@ type Welcome struct {
 	ServerTX float64           `json:"server_tx"`
 }
 
+func (w *Welcome) RendezvousValue() string {
+	return "welcome"
+}
+
 type WelcomeServerInfo struct {
 	MOTD              string `json:"motd"`
 	CurrentCLIVersion string `json:"current_cli_version"`
@@ -24,10 +28,18 @@ type Bind struct {
 	ClientVersion []string `json:"client_version"`
 }
 
+func (b *Bind) RendezvousValue() string {
+	return "bind"
+}
+
 // Client sent aollocate message
 type Allocate struct {
 	Type string `json:"type" rendezvous_value:"allocate"`
 	ID   string `json:"id"`
+}
+
+func (a *Allocate) RendezvousValue() string {
+	return "allocate"
 }
 
 // Server sent ack message
@@ -37,11 +49,19 @@ type Ack struct {
 	ServerTX float64 `json:"server_tx"`
 }
 
+func (a *Ack) RendezvousValue() string {
+	return "ack"
+}
+
 // Server sent allocated message
 type AllocatedResp struct {
 	Type      string  `json:"type" rendezvous_value:"allocated"`
 	Nameplate string  `json:"nameplate"`
 	ServerTX  float64 `json:"server_tx"`
+}
+
+func (a *AllocatedResp) RendezvousValue() string {
+	return "allocated"
 }
 
 // Client sent claim message
@@ -51,11 +71,19 @@ type Claim struct {
 	Nameplate string `json:"nameplate"`
 }
 
+func (c *Claim) RendezvousValue() string {
+	return "claim"
+}
+
 // Server sent claimed message
 type ClaimedResp struct {
 	Type     string  `json:"type" rendezvous_value:"claimed"`
 	Mailbox  string  `json:"mailbox"`
 	ServerTX float64 `json:"server_tx"`
+}
+
+func (c *ClaimedResp) RendezvousValue() string {
+	return "claimed"
 }
 
 // Client sent open message
@@ -65,6 +93,10 @@ type Open struct {
 	Mailbox string `json:"mailbox"`
 }
 
+func (o *Open) RendezvousValue() string {
+	return "open"
+}
+
 // Client sent add message to add a message to a mailbox.
 type Add struct {
 	Type  string `json:"type" rendezvous_value:"add"`
@@ -72,6 +104,10 @@ type Add struct {
 	Phase string `json:"phase"`
 	// Body is a hex string encoded json submessage
 	Body string `json:"body"`
+}
+
+func (a *Add) RendezvousValue() string {
+	return "add"
 }
 
 // Server sent message message
@@ -86,10 +122,18 @@ type Message struct {
 	ServerTX float64 `json:"server_tx"`
 }
 
+func (m *Message) RendezvousValue() string {
+	return "message"
+}
+
 // Client sent list message to list nameplates.
 type List struct {
 	Type string `json:"type" rendezvous_value:"list"`
 	ID   string `json:"id"`
+}
+
+func (l *List) RendezvousValue() string {
+	return "list"
 }
 
 // Server sent nameplates message.
@@ -103,6 +147,10 @@ type Nameplates struct {
 	ServerTX float64 `json:"server_tx"`
 }
 
+func (n *Nameplates) RendezvousValue() string {
+	return "nameplates"
+}
+
 // Client sent release message to release a nameplate.
 type Release struct {
 	Type      string `json:"type" rendezvous_value:"release"`
@@ -110,10 +158,18 @@ type Release struct {
 	Nameplate string `json:"nameplate"`
 }
 
+func (r *Release) RendezvousValue() string {
+	return "release"
+}
+
 // Server sent response to release request.
 type ReleasedResp struct {
 	Type     string  `json:"type" rendezvous_value:"released"`
 	ServerTX float64 `json:"server_tx"`
+}
+
+func (r *ReleasedResp) RendezvousValue() string {
+	return "released"
 }
 
 // Server sent error message
@@ -124,6 +180,10 @@ type Error struct {
 	ServerTx float64     `json:"server_tx"`
 }
 
+func (e *Error) RendezvousValue() string {
+	return "error"
+}
+
 type Close struct {
 	Type    string `json:"type" rendezvous_value:"close"`
 	ID      string `json:"id"`
@@ -131,9 +191,17 @@ type Close struct {
 	Mood    string `json:"mood"`
 }
 
+func (c *Close) RendezvousValue() string {
+	return "close"
+}
+
 type ClosedResp struct {
 	Type     string  `json:"type" rendezvous_value:"closed"`
 	ServerTx float64 `json:"server_tx"`
+}
+
+func (c *ClosedResp) RendezvousValue() string {
+	return "closed"
 }
 
 type GenericServerMsg struct {
@@ -141,24 +209,4 @@ type GenericServerMsg struct {
 	ServerTX float64 `json:"server_tx"`
 	ID       string  `json:"id"`
 	Error    string  `json:"error"`
-}
-
-var MsgMap = map[string]interface{}{
-	"welcome":    Welcome{},
-	"bind":       Bind{},
-	"allocate":   Allocate{},
-	"ack":        Ack{},
-	"allocated":  AllocatedResp{},
-	"claim":      Claim{},
-	"claimed":    ClaimedResp{},
-	"open":       Open{},
-	"add":        Add{},
-	"message":    Message{},
-	"list":       List{},
-	"nameplates": Nameplates{},
-	"release":    Release{},
-	"released":   ReleasedResp{},
-	"error":      Error{},
-	"close":      Close{},
-	"closed":     ClosedResp{},
 }

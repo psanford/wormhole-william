@@ -139,6 +139,26 @@ func prepareServerMsg(msg interface{}) {
 	}
 }
 
+var msgMap = map[string]interface{}{
+	"welcome":    msgs.Welcome{},
+	"bind":       msgs.Bind{},
+	"allocate":   msgs.Allocate{},
+	"ack":        msgs.Ack{},
+	"allocated":  msgs.AllocatedResp{},
+	"claim":      msgs.Claim{},
+	"claimed":    msgs.ClaimedResp{},
+	"open":       msgs.Open{},
+	"add":        msgs.Add{},
+	"message":    msgs.Message{},
+	"list":       msgs.List{},
+	"nameplates": msgs.Nameplates{},
+	"release":    msgs.Release{},
+	"released":   msgs.ReleasedResp{},
+	"error":      msgs.Error{},
+	"close":      msgs.Close{},
+	"closed":     msgs.ClosedResp{},
+}
+
 func serverUnmarshal(m []byte) (interface{}, error) {
 	var genericMsg msgs.GenericServerMsg
 	err := json.Unmarshal(m, &genericMsg)
@@ -146,7 +166,7 @@ func serverUnmarshal(m []byte) (interface{}, error) {
 		return nil, err
 	}
 
-	protoType, found := msgs.MsgMap[genericMsg.Type]
+	protoType, found := msgMap[genericMsg.Type]
 	if !found {
 		return nil, fmt.Errorf("unknown msg type: %s %v %s", genericMsg.Type, genericMsg, m)
 	}

@@ -1,21 +1,34 @@
 package msgs
 
 import (
-	"reflect"
 	"testing"
 )
 
+var msgMap = map[string]RendezvousValue{
+	"welcome":    &Welcome{},
+	"bind":       &Bind{},
+	"allocate":   &Allocate{},
+	"ack":        &Ack{},
+	"allocated":  &AllocatedResp{},
+	"claim":      &Claim{},
+	"claimed":    &ClaimedResp{},
+	"open":       &Open{},
+	"add":        &Add{},
+	"message":    &Message{},
+	"list":       &List{},
+	"nameplates": &Nameplates{},
+	"release":    &Release{},
+	"released":   &ReleasedResp{},
+	"error":      &Error{},
+	"close":      &Close{},
+	"closed":     &ClosedResp{},
+}
+
 func TestStructTags(t *testing.T) {
-	for n, iface := range MsgMap {
-		st := reflect.TypeOf(iface)
-		for i := 0; i < st.NumField(); i++ {
-			field := st.Field(i)
-			if field.Name == "Type" {
-				tagVal, _ := field.Tag.Lookup("rendezvous_value")
-				if tagVal != n {
-					t.Errorf("msgMap key / Type struct tag rendezvous_value mismatch: key=%s tag=%s struct=%T", n, tagVal, iface)
-				}
-			}
+	for n, iface := range msgMap {
+		value := iface.RendezvousValue()
+		if value != n {
+			t.Errorf("msgMap key / Type struct tag rendezvous_value mismatch: key=%s tag=%s struct=%T", n, value, iface)
 		}
 	}
 }
