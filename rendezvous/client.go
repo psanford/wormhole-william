@@ -207,7 +207,7 @@ func (c *Client) deregisterWaiter(id uint32) {
 }
 
 func (c *Client) readMsg(ctx context.Context, m msgs.RendezvousValue) error {
-	expectMsgType := msgType(m)
+	expectMsgType := m.RendezvousValue()
 
 	waiterID, ch := c.registerWaiter()
 	defer c.deregisterWaiter(waiterID)
@@ -231,10 +231,6 @@ func (c *Client) readMsg(ctx context.Context, m msgs.RendezvousValue) error {
 			return nil
 		}
 	}
-}
-
-func msgType(msg msgs.RendezvousValue) string {
-	return msg.RendezvousValue()
 }
 
 // CreateMailbox allocates a nameplate, claims it, and then opens
