@@ -21,14 +21,14 @@ var msgMap = map[string]RendezvousType{
 	"released":   NewReleasedResp(),
 	"error":      NewError("", nil),
 	"close":      NewClose("", ""),
-	"closed":     NewClaimedResp(),
+	"closed":     NewClosedResp(),
 }
 
 func TestStructTags(t *testing.T) {
 	for n, iface := range msgMap {
 		value := iface.GetType()
 		if value != n {
-			t.Errorf("msgMap key / Type struct tag rendezvous_value mismatch: key=%s tag=%s struct=%T", n, value, iface)
+			t.Fatalf("msgMap key / Type struct tag rendezvous_value mismatch: key=%s tag=%s struct=%T", n, value, iface)
 		}
 	}
 }
