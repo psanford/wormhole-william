@@ -1,5 +1,13 @@
 package msgs
 
+import "github.com/psanford/wormhole-william/internal/crypto"
+
+func NewWelcome() *Welcome {
+	return &Welcome{
+		Type: "welcome",
+	}
+}
+
 // Server sent wecome message
 type Welcome struct {
 	Type     string            `json:"type" rendezvous_value:"welcome"`
@@ -7,14 +15,24 @@ type Welcome struct {
 	ServerTX float64           `json:"server_tx"`
 }
 
-func (w *Welcome) RendezvousValue() string {
-	return "welcome"
+func (w *Welcome) GetType() string {
+	return w.Type
 }
 
 type WelcomeServerInfo struct {
 	MOTD              string `json:"motd"`
 	CurrentCLIVersion string `json:"current_cli_version"`
 	Error             string `json:"error"`
+}
+
+func NewBind(side, appid string, clientVersion []string) *Bind {
+	return &Bind{
+		Type:          "bind",
+		ID:            crypto.RandHex(2),
+		Side:          side,
+		AppID:         appid,
+		ClientVersion: clientVersion,
+	}
 }
 
 // Client sent bind message
@@ -28,8 +46,19 @@ type Bind struct {
 	ClientVersion []string `json:"client_version"`
 }
 
-func (b *Bind) RendezvousValue() string {
-	return "bind"
+func (b *Bind) GetType() string {
+	return b.Type
+}
+
+func (b *Bind) GetID() string {
+	return b.ID
+}
+
+func NewAllocate() *Allocate {
+	return &Allocate{
+		Type: "allocate",
+		ID:   crypto.RandHex(2),
+	}
 }
 
 // Client sent aollocate message
@@ -38,8 +67,19 @@ type Allocate struct {
 	ID   string `json:"id"`
 }
 
-func (a *Allocate) RendezvousValue() string {
-	return "allocate"
+func (a *Allocate) GetType() string {
+	return a.Type
+}
+
+func (a *Allocate) GetID() string {
+	return a.ID
+}
+
+func NewAck() *Ack {
+	return &Ack{
+		Type: "ack",
+		ID:   crypto.RandHex(2),
+	}
 }
 
 // Server sent ack message
@@ -49,8 +89,18 @@ type Ack struct {
 	ServerTX float64 `json:"server_tx"`
 }
 
-func (a *Ack) RendezvousValue() string {
-	return "ack"
+func (a *Ack) GetType() string {
+	return a.Type
+}
+
+func (a *Ack) GetID() string {
+	return a.ID
+}
+
+func NewAllocatedResp() *AllocatedResp {
+	return &AllocatedResp{
+		Type: "allocated",
+	}
 }
 
 // Server sent allocated message
@@ -60,8 +110,16 @@ type AllocatedResp struct {
 	ServerTX  float64 `json:"server_tx"`
 }
 
-func (a *AllocatedResp) RendezvousValue() string {
-	return "allocated"
+func (a *AllocatedResp) GetType() string {
+	return a.Type
+}
+
+func NewClaim(nameplate string) *Claim {
+	return &Claim{
+		Type:      "claim",
+		ID:        crypto.RandHex(2),
+		Nameplate: nameplate,
+	}
 }
 
 // Client sent claim message
@@ -71,8 +129,18 @@ type Claim struct {
 	Nameplate string `json:"nameplate"`
 }
 
-func (c *Claim) RendezvousValue() string {
-	return "claim"
+func (c *Claim) GetType() string {
+	return c.Type
+}
+
+func (c *Claim) GetID() string {
+	return c.ID
+}
+
+func NewClaimedResp() *ClaimedResp {
+	return &ClaimedResp{
+		Type: "claimed",
+	}
 }
 
 // Server sent claimed message
@@ -82,8 +150,16 @@ type ClaimedResp struct {
 	ServerTX float64 `json:"server_tx"`
 }
 
-func (c *ClaimedResp) RendezvousValue() string {
-	return "claimed"
+func (c *ClaimedResp) GetType() string {
+	return c.Type
+}
+
+func NewOpen(mailbox string) *Open {
+	return &Open{
+		Type:    "open",
+		ID:      crypto.RandHex(2),
+		Mailbox: mailbox,
+	}
 }
 
 // Client sent open message
@@ -93,8 +169,21 @@ type Open struct {
 	Mailbox string `json:"mailbox"`
 }
 
-func (o *Open) RendezvousValue() string {
-	return "open"
+func (o *Open) GetType() string {
+	return o.Type
+}
+
+func (o *Open) GetID() string {
+	return o.ID
+}
+
+func NewAdd(phase, body string) *Add {
+	return &Add{
+		Type:  "add",
+		ID:    crypto.RandHex(2),
+		Phase: phase,
+		Body:  body,
+	}
 }
 
 // Client sent add message to add a message to a mailbox.
@@ -106,8 +195,19 @@ type Add struct {
 	Body string `json:"body"`
 }
 
-func (a *Add) RendezvousValue() string {
-	return "add"
+func (a *Add) GetType() string {
+	return a.Type
+}
+
+func (a *Add) GetID() string {
+	return a.ID
+}
+
+func NewMessage() *Message {
+	return &Message{
+		Type: "message",
+		ID:   crypto.RandHex(2),
+	}
 }
 
 // Server sent message message
@@ -122,8 +222,19 @@ type Message struct {
 	ServerTX float64 `json:"server_tx"`
 }
 
-func (m *Message) RendezvousValue() string {
-	return "message"
+func (m *Message) GetType() string {
+	return m.Type
+}
+
+func (m *Message) GetID() string {
+	return m.ID
+}
+
+func NewList() *List {
+	return &List{
+		Type: "list",
+		ID:   crypto.RandHex(2),
+	}
 }
 
 // Client sent list message to list nameplates.
@@ -132,8 +243,18 @@ type List struct {
 	ID   string `json:"id"`
 }
 
-func (l *List) RendezvousValue() string {
-	return "list"
+func (l *List) GetType() string {
+	return l.Type
+}
+
+func (l *List) GetID() string {
+	return l.ID
+}
+
+func NewNameplates() *Nameplates {
+	return &Nameplates{
+		Type: "nameplates",
+	}
 }
 
 // Server sent nameplates message.
@@ -147,8 +268,16 @@ type Nameplates struct {
 	ServerTX float64 `json:"server_tx"`
 }
 
-func (n *Nameplates) RendezvousValue() string {
-	return "nameplates"
+func (n *Nameplates) GetType() string {
+	return n.Type
+}
+
+func NewRelease(nameplate string) *Release {
+	return &Release{
+		Type:      "release",
+		ID:        crypto.RandHex(2),
+		Nameplate: nameplate,
+	}
 }
 
 // Client sent release message to release a nameplate.
@@ -158,8 +287,18 @@ type Release struct {
 	Nameplate string `json:"nameplate"`
 }
 
-func (r *Release) RendezvousValue() string {
-	return "release"
+func (r *Release) GetType() string {
+	return r.Type
+}
+
+func (r *Release) GetID() string {
+	return r.ID
+}
+
+func NewReleasedResp() *ReleasedResp {
+	return &ReleasedResp{
+		Type: "released",
+	}
 }
 
 // Server sent response to release request.
@@ -168,8 +307,16 @@ type ReleasedResp struct {
 	ServerTX float64 `json:"server_tx"`
 }
 
-func (r *ReleasedResp) RendezvousValue() string {
-	return "released"
+func (r *ReleasedResp) GetType() string {
+	return r.Type
+}
+
+func NewError(errorStr string, orig interface{}) *Error {
+	return &Error{
+		Type:  "error",
+		Error: errorStr,
+		Orig:  orig,
+	}
 }
 
 // Server sent error message
@@ -180,8 +327,17 @@ type Error struct {
 	ServerTx float64     `json:"server_tx"`
 }
 
-func (e *Error) RendezvousValue() string {
-	return "error"
+func (e *Error) GetType() string {
+	return e.Type
+}
+
+func NewClose(mood, mailbox string) *Close {
+	return &Close{
+		Type:    "close",
+		ID:      crypto.RandHex(2),
+		Mood:    mood,
+		Mailbox: mailbox,
+	}
 }
 
 type Close struct {
@@ -191,8 +347,18 @@ type Close struct {
 	Mood    string `json:"mood"`
 }
 
-func (c *Close) RendezvousValue() string {
-	return "close"
+func (c *Close) GetType() string {
+	return c.Type
+}
+
+func (c *Close) GetID() string {
+	return c.ID
+}
+
+func NewClosedResp() *ClosedResp {
+	return &ClosedResp{
+		Type: "closed",
+	}
 }
 
 type ClosedResp struct {
@@ -200,8 +366,8 @@ type ClosedResp struct {
 	ServerTx float64 `json:"server_tx"`
 }
 
-func (c *ClosedResp) RendezvousValue() string {
-	return "closed"
+func (c *ClosedResp) GetType() string {
+	return c.Type
 }
 
 type GenericServerMsg struct {
@@ -209,4 +375,8 @@ type GenericServerMsg struct {
 	ServerTX float64 `json:"server_tx"`
 	ID       string  `json:"id"`
 	Error    string  `json:"error"`
+}
+
+func (g *GenericServerMsg) GetID() string {
+	return g.ID
 }

@@ -217,11 +217,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	errMsg := func(id string, orig interface{}, reason error) {
-		errPacket := &msgs.Error{
-			Error: reason.Error(),
-			Orig:  orig,
-		}
-
+		errPacket := msgs.NewError(reason.Error(), orig)
 		sendMsg(errPacket)
 	}
 

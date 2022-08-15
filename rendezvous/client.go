@@ -6,11 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"sync/atomic"
 
-	"github.com/psanford/wormhole-william/internal/crypto"
 	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
 	"github.com/psanford/wormhole-william/version"
 	"nhooyr.io/websocket"
@@ -142,8 +140,8 @@ func (c *Client) Connect(ctx context.Context) (*ConnectInfo, error) {
 
 	go c.readMessages(ctx)
 
-	var welcome msgs.Welcome
-	err = c.readMsg(ctx, &welcome)
+	welcome := msgs.NewWelcome()
+	err = c.readMsg(ctx, welcome)
 	if err != nil {
 		c.closeWithError(err)
 		return nil, err
@@ -206,8 +204,8 @@ func (c *Client) deregisterWaiter(id uint32) {
 	delete(c.pendingMsgWaiters, id)
 }
 
-func (c *Client) readMsg(ctx context.Context, m msgs.RendezvousValue) error {
-	expectMsgType := m.RendezvousValue()
+func (c *Client) readMsg(ctx context.Context, m msgs.RendezvousType) error {
+	expectMsgType := m.GetType()
 
 	waiterID, ch := c.registerWaiter()
 	defer c.deregisterWaiter(waiterID)
@@ -280,17 +278,15 @@ func (c *Client) AttachMailbox(ctx context.Context, nameplate string) error {
 // ListNameplates returns a list of active nameplates on the
 // rendezvous server.
 func (c *Client) ListNameplates(ctx context.Context) ([]string, error) {
-	var (
-		nameplatesResp msgs.Nameplates
-		listReq        msgs.List
-	)
+	nameplatesResp := msgs.NewNameplates()
+	listReq := msgs.NewList()
 
-	_, err := c.sendAndWait(ctx, &listReq)
+	_, err := c.sendAndWait(ctx, listReq)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.readMsg(ctx, &nameplatesResp)
+	err = c.readMsg(ctx, nameplatesResp)
 	if err != nil {
 		return nil, err
 	}
@@ -306,12 +302,8 @@ func (c *Client) ListNameplates(ctx context.Context) ([]string, error) {
 // AddMessage adds a message to the opened mailbox. This must be called after
 // either CreateMailbox or AttachMailbox.
 func (c *Client) AddMessage(ctx context.Context, phase, body string) error {
-	addReq := msgs.Add{
-		Phase: phase,
-		Body:  body,
-	}
-
-	_, err := c.sendAndWait(ctx, &addReq)
+	addReq := msgs.NewAdd(phase, body)
+	_, err := c.sendAndWait(ctx, addReq)
 	return err
 }
 
@@ -415,39 +407,32 @@ func (c *Client) Close(ctx context.Context, mood Mood) error {
 		}
 	}()
 
-	var closedResp msgs.ClosedResp
+	closeReq := msgs.NewClose(string(mood), c.mailboxID)
 
-	closeReq := msgs.Close{
-		Mood:    string(mood),
-		Mailbox: c.mailboxID,
-	}
-
-	_, err := c.sendAndWait(ctx, &closeReq)
+	_, err := c.sendAndWait(ctx, closeReq)
 	if err != nil {
 		return err
 	}
 
-	err = c.readMsg(ctx, &closedResp)
+	closedResp := msgs.NewClosedResp()
+	err = c.readMsg(ctx, closedResp)
 	return err
 }
 
 // sendAndWait sends a message to the rendezvous server and waits
 // for an ack response.
-func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*msgs.Ack, error) {
-	id, err := c.prepareMsg(msg)
-	if err != nil {
-		return nil, err
-	}
+func (c *Client) sendAndWait(ctx context.Context, msg msgs.TypeAndID) (*msgs.Ack, error) {
+	id := msg.GetID()
 
 	c.sendCmdMu.Lock()
-	err = wsjson.Write(ctx, c.wsClient, msg)
+	err := wsjson.Write(ctx, c.wsClient, msg)
 	if err != nil {
 		c.sendCmdMu.Unlock()
 		return nil, err
 	}
 
-	var ack msgs.Ack
-	err = c.readMsg(ctx, &ack)
+	ack := msgs.NewAck()
+	err = c.readMsg(ctx, ack)
 	if err != nil {
 		c.sendCmdMu.Unlock()
 		return nil, err
@@ -458,50 +443,7 @@ func (c *Client) sendAndWait(ctx context.Context, msg interface{}) (*msgs.Ack, e
 		return nil, fmt.Errorf("got ack for different message. got %s send: %+v", ack.ID, msg)
 	}
 
-	return &ack, nil
-}
-
-// prepareMsg populates the ID and Type fields for a message.
-// It returns the ID string or an error.
-func (c *Client) prepareMsg(msg interface{}) (string, error) {
-	id := crypto.RandHex(2)
-
-	ptr := reflect.TypeOf(msg)
-
-	if ptr.Kind() != reflect.Ptr {
-		return "", errors.New("msg must be a pointer")
-	}
-
-	st := ptr.Elem()
-	val := reflect.ValueOf(msg).Elem()
-
-	var (
-		foundType bool
-		foundID   bool
-	)
-
-	for i := 0; i < st.NumField(); i++ {
-		field := st.Field(i)
-		if field.Name == "Type" {
-			msgType, _ := field.Tag.Lookup("rendezvous_value")
-			if msgType == "" {
-				return "", errors.New("type filed missing rendezvous_value struct tag")
-			}
-			ff := val.Field(i)
-			ff.SetString(msgType)
-			foundType = true
-		} else if field.Name == "ID" {
-			ff := val.Field(i)
-			ff.SetString(id)
-			foundID = true
-		}
-	}
-
-	if !foundID || !foundType {
-		return id, errors.New("msg type missing required field(s): Type and/or ID")
-	}
-
-	return id, nil
+	return ack, nil
 }
 
 func (c *Client) agentID() (string, string) {
@@ -520,68 +462,55 @@ func (c *Client) agentID() (string, string) {
 func (c *Client) bind(ctx context.Context, side, appID string) error {
 	agent, version := c.agentID()
 
-	bind := msgs.Bind{
-		Side:          side,
-		AppID:         appID,
-		ClientVersion: []string{agent, version},
-	}
-
-	_, err := c.sendAndWait(ctx, &bind)
+	bind := msgs.NewBind(side, appID, []string{agent, version})
+	_, err := c.sendAndWait(ctx, bind)
 	return err
 }
 
 func (c *Client) allocateNameplate(ctx context.Context) (*msgs.AllocatedResp, error) {
-	var (
-		allocReq    msgs.Allocate
-		allocedResp msgs.AllocatedResp
-	)
+	allocReq := msgs.NewAllocate()
 
-	_, err := c.sendAndWait(ctx, &allocReq)
+	_, err := c.sendAndWait(ctx, allocReq)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.readMsg(ctx, &allocedResp)
+	allocedResp := msgs.NewAllocatedResp()
+	err = c.readMsg(ctx, allocedResp)
 	if err != nil {
 		return nil, err
 	}
 
-	return &allocedResp, nil
+	return allocedResp, nil
 }
 
 func (c *Client) claimNameplate(ctx context.Context, nameplate string) (*msgs.ClaimedResp, error) {
-	var claimResp msgs.ClaimedResp
+	claimReq := msgs.NewClaim(nameplate)
 
-	claimReq := msgs.Claim{
-		Nameplate: nameplate,
-	}
-
-	_, err := c.sendAndWait(ctx, &claimReq)
+	_, err := c.sendAndWait(ctx, claimReq)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.readMsg(ctx, &claimResp)
+	claimResp := msgs.NewClaimedResp()
+	err = c.readMsg(ctx, claimResp)
 	if err != nil {
 		return nil, err
 	}
 
-	return &claimResp, nil
+	return claimResp, nil
 }
 
 func (c *Client) releaseNameplate(ctx context.Context, nameplate string) error {
-	var releasedResp msgs.ReleasedResp
+	releaseReq := msgs.NewRelease(nameplate)
 
-	releaseReq := msgs.Release{
-		Nameplate: nameplate,
-	}
-
-	_, err := c.sendAndWait(ctx, &releaseReq)
+	_, err := c.sendAndWait(ctx, releaseReq)
 	if err != nil {
 		return err
 	}
 
-	err = c.readMsg(ctx, &releasedResp)
+	releasedResp := msgs.NewReleasedResp()
+	err = c.readMsg(ctx, releasedResp)
 	if err != nil {
 		return err
 	}
@@ -594,11 +523,8 @@ func (c *Client) openMailbox(ctx context.Context, mailbox string) error {
 	c.mailboxID = mailbox
 	c.pendingMsgMu.Unlock()
 
-	open := msgs.Open{
-		Mailbox: mailbox,
-	}
-
-	_, err := c.sendAndWait(ctx, &open)
+	open := msgs.NewOpen(mailbox)
+	_, err := c.sendAndWait(ctx, open)
 	return err
 }
 
@@ -627,7 +553,7 @@ func (c *Client) readMessages(ctx context.Context) {
 		}
 
 		if genericMsg.Type == "message" {
-			var mm msgs.Message
+			mm := msgs.NewMessage()
 			err := json.Unmarshal(msg, &mm)
 			if err != nil {
 				wrappedErr := fmt.Errorf("JSON unmarshal: %s", err)
