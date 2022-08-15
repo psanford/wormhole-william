@@ -278,7 +278,6 @@ func (c *Client) AttachMailbox(ctx context.Context, nameplate string) error {
 // ListNameplates returns a list of active nameplates on the
 // rendezvous server.
 func (c *Client) ListNameplates(ctx context.Context) ([]string, error) {
-	nameplatesResp := msgs.NewNameplates()
 	listReq := msgs.NewList()
 
 	_, err := c.sendAndWait(ctx, listReq)
@@ -286,6 +285,7 @@ func (c *Client) ListNameplates(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 
+	nameplatesResp := msgs.NewNameplates()
 	err = c.readMsg(ctx, nameplatesResp)
 	if err != nil {
 		return nil, err
