@@ -25,7 +25,7 @@ type WelcomeServerInfo struct {
 	Error             string `json:"error"`
 }
 
-func NewBind(side, appid string, clientVersion []string) *Bind {
+func NewBind(side, appid string, clientVersion [2]string) *Bind {
 	return &Bind{
 		Type:          "bind",
 		ID:            crypto.RandHex(2),
@@ -43,7 +43,7 @@ type Bind struct {
 	AppID string `json:"appid"`
 	// ClientVersion is by convention a two value array
 	// of [client_id, version]
-	ClientVersion []string `json:"client_version"`
+	ClientVersion [2]string `json:"client_version"`
 }
 
 func (b *Bind) GetType() string {

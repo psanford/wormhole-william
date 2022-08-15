@@ -261,7 +261,7 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 			}
 
 			ts.mu.Lock()
-			ts.agents = append(ts.agents, m.ClientVersion)
+			ts.agents = append(ts.agents, m.ClientVersion[:])
 			ts.mu.Unlock()
 			sideID = m.Side
 

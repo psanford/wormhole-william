@@ -6,7 +6,7 @@ import (
 
 var msgMap = map[string]RendezvousType{
 	"welcome":    NewWelcome(),
-	"bind":       NewBind("", "", nil),
+	"bind":       NewBind("", "", [2]string{}),
 	"allocate":   NewAllocate(),
 	"ack":        NewAck(),
 	"allocated":  NewAllocatedResp(),

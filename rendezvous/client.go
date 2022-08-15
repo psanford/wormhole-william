@@ -462,7 +462,7 @@ func (c *Client) agentID() (string, string) {
 func (c *Client) bind(ctx context.Context, side, appID string) error {
 	agent, version := c.agentID()
 
-	bind := msgs.NewBind(side, appID, []string{agent, version})
+	bind := msgs.NewBind(side, appID, [2]string{agent, version})
 	_, err := c.sendAndWait(ctx, bind)
 	return err
 }
