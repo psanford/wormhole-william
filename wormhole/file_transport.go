@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"math/big"
 	"net"
@@ -184,8 +185,10 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 
 	var count int
 	for _, relay := range otherTransit.HintsV1 {
+		log.Println("relay: ", relay)
 		if relay.Type == "relay-v1" {
 			for _, endpoint := range relay.Hints {
+				log.Println("- endpoint: ", endpoint)
 				var addr string
 				switch endpoint.Type {
 					case "direct-tcp-v1":
@@ -195,6 +198,7 @@ func (t *fileTransport) connectViaRelay(otherTransit *transitMsg) (net.Conn, err
 				}
 				ctx, cancel := context.WithCancel(context.Background())
 				cancelFuncs[addr] = cancel
+				log.Println("- addr: ", addr)
 
 				count++
 				go t.connectToRelay(ctx, successChan, failChan)
@@ -264,9 +268,11 @@ func (t *fileTransport) connectToRelay(ctx context.Context, successChan chan net
 	var err error
 	addr := fmt.Sprintf("%s:%s", t.relayURL.Hostname(), t.relayURL.Port())
 
+	log.Println("- Relay: ", t.relayURL)
 	switch t.relayURL.Scheme {
 	case "tcp":
 		conn, err = d.DialContext(ctx, "tcp", addr)
+		log.Println("  - ", conn, err)
 
 		if err != nil {
 			failChan <- addr
@@ -285,12 +291,14 @@ func (t *fileTransport) connectToRelay(ctx context.Context, successChan chan net
 	}
 
 	_, err = conn.Write(t.relayHandshakeHeader())
+	log.Println("  - ", err)
 	if err != nil {
 		failChan <- addr
 		return
 	}
 	gotOk := make([]byte, 3)
 	_, err = io.ReadFull(conn, gotOk)
+	log.Println("  - ", err)
 	if err != nil {
 		conn.Close()
 		failChan <- addr
@@ -298,6 +306,7 @@ func (t *fileTransport) connectToRelay(ctx context.Context, successChan chan net
 	}
 
 	if !bytes.Equal(gotOk, []byte("ok\n")) {
+		log.Println("  - Not OK")
 		conn.Close()
 		failChan <- addr
 		return
@@ -511,6 +520,7 @@ func (t *fileTransport) listen() error {
 
 func (t *fileTransport) listenRelay(ctx context.Context) (err error) {
 	var conn net.Conn
+	log.Println("URL: ", t.relayURL)
 	switch t.relayURL.Scheme {
 	case "tcp":
 		// NB: don't dial the relay if we don't have an address.
