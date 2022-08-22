@@ -413,9 +413,9 @@ func (t *fileTransport) makeTransitMsg() (*transitMsg, error) {
 		case "tcp":
 			relayType = "direct-tcp-v1"
 		case "ws":
-			relayType = "websocket"
+			relayType = "websocket-v1"
 		case "wss":
-			relayType = "websocket"
+			relayType = "websocket-v1"
 		default:
 			return nil, fmt.Errorf("%w: %s", UnsupportedProtocolErr, t.relayURL.Scheme)
 		}
