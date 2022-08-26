@@ -206,9 +206,12 @@ func recvAction(cmd *cobra.Command, args []string) {
 					actualUncompressedSize += f.FileHeader.UncompressedSize64
 					fileCount++
 				}
-				if msg.UncompressedBytes64 != int64(actualUncompressedSize) ||
-					msg.FileCount != fileCount {
-					bail("zip error: corrupted zip file")
+				if msg.UncompressedBytes64 < int64(actualUncompressedSize) {
+					bail("error: uncompressed size of the directory mismatch with that in the offer message")
+				}
+
+				if msg.FileCount < fileCount {
+					bail("error: number of files in the directory mismatch with that in the offer message")
 				}
 
 				for _, zf := range zr.File {
