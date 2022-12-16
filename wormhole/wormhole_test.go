@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -842,8 +841,9 @@ func TestDontHangOnDuplicateAddressHints(t *testing.T) {
 
 	go func() {
 		<-ctx.Done()
-		log.Printf("ctx done: %s", ctx.Err())
-		panic("Test hanging on duplicate addresses in hints")
+		if ctx.Err() == context.DeadlineExceeded {
+			panic("Test hanging on duplicate addresses in hints")
+		}
 	}()
 
 	rs := rendezvousservertest.NewServer()
