@@ -621,14 +621,19 @@ var nonLocalhostAddresses = func() []string {
 		return nil
 	}
 
-	var outAddrs []string
+	dedupAddrs := make(map[string]struct{})
 
 	for _, a := range addrs {
 		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
-				outAddrs = append(outAddrs, ipnet.IP.String())
+				dedupAddrs[ipnet.IP.String()] = struct{}{}
 			}
 		}
+	}
+
+	outAddrs := make([]string, 0, len(dedupAddrs))
+	for addr := range dedupAddrs {
+		outAddrs = append(outAddrs, addr)
 	}
 
 	return outAddrs
