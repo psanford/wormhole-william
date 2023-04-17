@@ -332,9 +332,11 @@ func (c *msgCollector) closeWithErr(err error) {
 }
 
 func (c *msgCollector) waitFor(msg collectable) error {
-	if reflect.ValueOf(msg).Kind() != reflect.Ptr {
+	msgValue := reflect.ValueOf(msg)
+	if msgValue.Kind() != reflect.Ptr {
 		return errors.New("you must pass waitFor a pointer to a struct")
 	}
+
 	sub := collectSubscription{
 		collectMsg: msg,
 		result:     make(chan collectResult, 1),
@@ -354,7 +356,7 @@ func (c *msgCollector) waitFor(msg collectable) error {
 		return result.err
 	}
 
-	dst := reflect.ValueOf(msg).Elem()
+	dst := msgValue.Elem()
 	src := reflect.ValueOf(result.result).Elem()
 
 	dst.Set(src)
