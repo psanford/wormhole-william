@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -332,9 +331,6 @@ func (c *msgCollector) closeWithErr(err error) {
 }
 
 func (c *msgCollector) waitFor(msg collectable) error {
-	if reflect.ValueOf(msg).Kind() != reflect.Ptr {
-		return errors.New("you must pass waitFor a pointer to a struct")
-	}
 	sub := collectSubscription{
 		collectMsg: msg,
 		result:     make(chan collectResult, 1),
@@ -354,12 +350,31 @@ func (c *msgCollector) waitFor(msg collectable) error {
 		return result.err
 	}
 
-	dst := reflect.ValueOf(msg).Elem()
-	src := reflect.ValueOf(result.result).Elem()
+	switch v := msg.(type) {
+	case *answerMsg:
+		if res, ok := result.result.(*answerMsg); ok {
+			v.FileAck = res.FileAck
+			v.MessageAck = res.MessageAck
+			return nil
+		}
+	case *offerMsg:
+		if res, ok := result.result.(*offerMsg); ok {
+			v.Message = res.Message
+			v.File = res.File
+			v.Directory = res.Directory
+			return nil
+		}
+	case *transitMsg:
+		if res, ok := result.result.(*transitMsg); ok {
+			v.HintsV1 = res.HintsV1
+			v.AbilitiesV1 = res.AbilitiesV1
+			return nil
+		}
+	default:
+		return errors.New("invalid collector type")
+	}
 
-	dst.Set(src)
-
-	return nil
+	return errors.New("could not collect messages")
 }
 
 type collectResult struct {
