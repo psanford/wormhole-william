@@ -330,7 +330,59 @@ func (c *msgCollector) closeWithErr(err error) {
 	}
 }
 
-func (c *msgCollector) waitFor(msg collectable) error {
+func (c *msgCollector) waitForAnswer(msg *answerMsg) error {
+	result, err := c.waitFor(msg)
+	if err != nil {
+		return err
+	}
+
+	res, ok := result.result.(*answerMsg)
+	if !ok {
+		return errors.New("mismatch between collector types")
+	}
+
+	msg.FileAck = res.FileAck
+	msg.MessageAck = res.MessageAck
+
+	return nil
+}
+
+func (c *msgCollector) waitForOffer(msg *offerMsg) error {
+	result, err := c.waitFor(msg)
+	if err != nil {
+		return err
+	}
+
+	res, ok := result.result.(*offerMsg)
+	if !ok {
+		return errors.New("mismatch between collector types")
+	}
+
+	msg.Message = res.Message
+	msg.File = res.File
+	msg.Directory = res.Directory
+
+	return nil
+}
+
+func (c *msgCollector) waitForTransit(msg *transitMsg) error {
+	result, err := c.waitFor(msg)
+	if err != nil {
+		return err
+	}
+
+	res, ok := result.result.(*transitMsg)
+	if !ok {
+		return errors.New("mismatch between collector types")
+	}
+
+	msg.HintsV1 = res.HintsV1
+	msg.AbilitiesV1 = res.AbilitiesV1
+
+	return nil
+}
+
+func (c *msgCollector) waitFor(msg collectable) (collectResult, error) {
 	sub := collectSubscription{
 		collectMsg: msg,
 		result:     make(chan collectResult, 1),
@@ -339,42 +391,18 @@ func (c *msgCollector) waitFor(msg collectable) error {
 	select {
 	case err := <-c.done:
 		if err != nil {
-			return err
+			return collectResult{}, err
 		}
-		return errors.New("msgCollector closed")
+		return collectResult{}, errors.New("msgCollector closed")
 	case c.subscribe <- &sub:
 	}
 
 	result := <-sub.result
 	if result.err != nil {
-		return result.err
+		return collectResult{}, result.err
 	}
 
-	switch v := msg.(type) {
-	case *answerMsg:
-		if res, ok := result.result.(*answerMsg); ok {
-			v.FileAck = res.FileAck
-			v.MessageAck = res.MessageAck
-			return nil
-		}
-	case *offerMsg:
-		if res, ok := result.result.(*offerMsg); ok {
-			v.Message = res.Message
-			v.File = res.File
-			v.Directory = res.Directory
-			return nil
-		}
-	case *transitMsg:
-		if res, ok := result.result.(*transitMsg); ok {
-			v.HintsV1 = res.HintsV1
-			v.AbilitiesV1 = res.AbilitiesV1
-			return nil
-		}
-	default:
-		return errors.New("invalid collector type")
-	}
-
-	return errors.New("could not collect messages")
+	return result, nil
 }
 
 type collectResult struct {

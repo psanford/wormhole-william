@@ -98,7 +98,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	defer collector.close()
 
 	var offer offerMsg
-	err = collector.waitFor(&offer)
+	err = collector.waitForOffer(&offer)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 	}
 
 	var gotTransitMsg transitMsg
-	err = collector.waitFor(&gotTransitMsg)
+	err = collector.waitForTransit(&gotTransitMsg)
 	if err != nil {
 		return nil, err
 	}
