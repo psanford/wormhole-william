@@ -184,7 +184,7 @@ func (c *Client) SendText(ctx context.Context, msg string, opts ...SendOption) (
 	return pwStr, ch, nil
 }
 
-func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Reader, opts ...SendOption) (string, chan SendResult, error) {
+func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.ReadCloser, opts ...SendOption) (string, chan SendResult, error) {
 	if err := c.validateRelayAddr(); err != nil {
 		return "", nil, fmt.Errorf("invalid TransitRelayAddress: %s", err)
 	}
@@ -244,11 +244,10 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 		}()
 
 		sendErr := func(err error) {
-			ch <- SendResult{
-				Error: err,
-			}
+			ch <- SendResult{Error: err}
 			returnErr = err
 			close(ch)
+			r.Close()
 		}
 
 		err = clientProto.WritePake(ctx, pwStr)
@@ -434,6 +433,7 @@ func (c *Client) sendFileDirectory(ctx context.Context, offer *offerMsg, r io.Re
 			OK: true,
 		}
 		close(ch)
+		r.Close()
 	}()
 
 	return pwStr, ch, nil
@@ -459,7 +459,7 @@ func (c *Client) SendFile(ctx context.Context, fileName string, r io.ReadSeeker,
 		},
 	}
 
-	return c.sendFileDirectory(ctx, offer, r, opts...)
+	return c.sendFileDirectory(ctx, offer, ioutil.NopCloser(r), opts...)
 }
 
 // A DirectoryEntry represents a single file to be sent by SendDirectory
@@ -496,20 +496,7 @@ func (c *Client) SendDirectory(ctx context.Context, directoryName string, entrie
 		},
 	}
 
-	code, resultCh, err := c.sendFileDirectory(ctx, offer, zipInfo.file, opts...)
-	if err != nil {
-		return "", nil, err
-	}
-
-	// intercept result chan to close our tmpfile after we are done with it
-	retCh := make(chan SendResult, 1)
-	go func() {
-		r := <-resultCh
-		zipInfo.file.Close()
-		retCh <- r
-	}()
-
-	return code, retCh, err
+	return c.sendFileDirectory(ctx, offer, zipInfo.file, opts...)
 }
 
 type zipResult struct {

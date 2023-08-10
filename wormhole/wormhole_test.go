@@ -329,7 +329,7 @@ func TestWormholeBigFileTransportSendRecvViaRelayServer(t *testing.T) {
 	r := bytes.NewReader(make([]byte, 1))
 
 	// skip th wrapper so we can provide our own offer
-	code, _, err := c0.sendFileDirectory(ctx, offer, r)
+	code, _, err := c0.sendFileDirectory(ctx, offer, ioutil.NopCloser(r))
 	//c0.SendFile(ctx, "file.txt", buf)
 	if err != nil {
 		t.Fatal(err)
