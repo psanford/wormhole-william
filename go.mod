@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/gorilla/websocket v1.5.0
-	github.com/klauspost/compress v1.15.15
+	github.com/klauspost/compress v1.16.7
 	github.com/mdp/qrterminal/v3 v3.0.0
 	github.com/spf13/cobra v1.6.1
 	golang.org/x/crypto v0.7.0
