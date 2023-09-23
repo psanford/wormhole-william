@@ -98,4 +98,5 @@ var targets = []target{
 	{"windows", "arm64", ""},
 	{"windows", "386", ""},
 	{"freebsd", "amd64", ""},
+	{"netbsd", "amd64", ""},
 }
