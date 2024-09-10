@@ -21,7 +21,7 @@ jobs:
       - name: Create Release
         uses: actions/github-script@v2
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
+          github-token: ${{secrets.MY_PAT_TOKEN}}
           script: |
             const fs = require('fs').promises;
             console.log('environment', process.versions);
