@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         go-version: [stable, oldstable]
-        os: [self-hosted-arm64, windows-latest]
+        os: [self-hosted-amd64, windows-latest]
 
     steps:
     - name: Set up Go
