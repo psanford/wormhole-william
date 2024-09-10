@@ -8,8 +8,8 @@ jobs:
     timeout-minutes: 3
     strategy:
       matrix:
-        go-version: [stable, oldstable]
-        os: [self-hosted-amd64, windows-latest]
+        go-version: ['1.23.1']
+        os: [self-hosted-arm64, windows-latest]
 
     steps:
     - name: Set up Go
