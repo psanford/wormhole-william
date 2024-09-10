@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/psanford/wormhole-william/wormhole"
+	"github.com/konamata/wormhole/wormhole"
 )
 
 func main() {

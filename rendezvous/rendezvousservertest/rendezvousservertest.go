@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/psanford/wormhole-william/internal/crypto"
-	"github.com/psanford/wormhole-william/rendezvous/internal/msgs"
+	"github.com/konamata/wormhole/internal/crypto"
+	"github.com/konamata/wormhole/rendezvous/internal/msgs"
 )
 
 type TestServer struct {
@@ -51,14 +51,12 @@ func (ts *TestServer) WebSocketURL() string {
 	u, err := url.Parse(ts.URL)
 	if err != nil {
 		panic(err)
-
 	}
 
 	u.Scheme = "ws"
 	u.Path = "/ws"
 
 	return u.String()
-
 }
 
 type mailbox struct {

@@ -14,9 +14,9 @@ import (
 	"strings"
 
 	"github.com/klauspost/compress/zip"
-	"github.com/psanford/wormhole-william/internal/crypto"
-	"github.com/psanford/wormhole-william/rendezvous"
-	"github.com/psanford/wormhole-william/wordlist"
+	"github.com/konamata/wormhole/internal/crypto"
+	"github.com/konamata/wormhole/rendezvous"
+	"github.com/konamata/wormhole/wordlist"
 	"golang.org/x/crypto/nacl/secretbox"
 )
 
@@ -520,7 +520,7 @@ type zipResult struct {
 }
 
 func makeTmpZip(directoryName string, entries []DirectoryEntry) (*zipResult, error) {
-	f, err := ioutil.TempFile("", "wormhole-william-dir")
+	f, err := ioutil.TempFile("", "wormhole-dir")
 	if err != nil {
 		return nil, err
 	}
@@ -615,7 +615,6 @@ func readSeekerSize(r io.ReadSeeker) (int64, error) {
 	}
 
 	return size, nil
-
 }
 
 type sendOptions struct {

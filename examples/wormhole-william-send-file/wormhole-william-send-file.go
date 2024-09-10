@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/psanford/wormhole-william/wormhole"
+	"github.com/konamata/wormhole/wormhole"
 )
 
 func main() {

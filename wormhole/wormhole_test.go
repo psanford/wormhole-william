@@ -18,9 +18,9 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/zip"
-	"github.com/psanford/wormhole-william/internal/crypto"
-	"github.com/psanford/wormhole-william/rendezvous"
-	"github.com/psanford/wormhole-william/rendezvous/rendezvousservertest"
+	"github.com/konamata/wormhole/internal/crypto"
+	"github.com/konamata/wormhole/rendezvous"
+	"github.com/konamata/wormhole/rendezvous/rendezvousservertest"
 )
 
 func TestWormholeSendRecvText(t *testing.T) {
@@ -330,7 +330,7 @@ func TestWormholeBigFileTransportSendRecvViaRelayServer(t *testing.T) {
 
 	// skip th wrapper so we can provide our own offer
 	code, _, err := c0.sendFileDirectory(ctx, offer, r)
-	//c0.SendFile(ctx, "file.txt", buf)
+	// c0.SendFile(ctx, "file.txt", buf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,6 @@ func TestWormholeBigFileTransportSendRecvViaRelayServer(t *testing.T) {
 	if int64(receiver.TransferBytes64) != fakeBigSize {
 		t.Fatalf("Mismatch in size between what we are trying to send and what is (our parsed) offer. Expected %v but got %v", fakeBigSize, receiver.TransferBytes64)
 	}
-
 }
 
 func TestWormholeFileTransportRecvMidStreamCancel(t *testing.T) {
@@ -946,8 +945,10 @@ func (ts *testRelayServer) run() {
 	}
 }
 
-var headerPrefix = []byte("please relay ")
-var headerSide = []byte(" for side ")
+var (
+	headerPrefix = []byte("please relay ")
+	headerSide   = []byte(" for side ")
+)
 
 func (ts *testRelayServer) handleConn(c net.Conn) {
 	// requests look like:
@@ -1035,7 +1036,6 @@ func (ts *testRelayServer) handleConn(c net.Conn) {
 			io.Copy(c, existing)
 			existing.Close()
 			c.Close()
-
 		}()
 
 		io.Copy(existing, c)

@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/psanford/wormhole-william/version"
+	"github.com/konamata/wormhole/version"
 )
 
 var ignoreTagMismatch = flag.Bool("ignore-tag-mismatch", false, "Don't check if current tag matches in code version")
@@ -82,7 +82,7 @@ func (t *target) binaryName() string {
 		ext = ".exe"
 	}
 
-	tmpl := "wormhole-william-%s-%s%s%s"
+	tmpl := "wormhole-%s-%s%s%s"
 	return fmt.Sprintf(tmpl, t.goos, t.garch, t.goarm, ext)
 }
 

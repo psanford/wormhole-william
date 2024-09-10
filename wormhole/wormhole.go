@@ -15,8 +15,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/psanford/wormhole-william/internal/crypto"
-	"github.com/psanford/wormhole-william/rendezvous"
+	"github.com/konamata/wormhole/internal/crypto"
+	"github.com/konamata/wormhole/rendezvous"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/nacl/secretbox"
 	"salsa.debian.org/vasudev/gospake2"
@@ -242,8 +242,7 @@ type genericMessage struct {
 	Error       *string         `json:"error,omitempty"`
 }
 
-type appVersionsMsg struct {
-}
+type appVersionsMsg struct{}
 
 type answerMsg struct {
 	MessageAck string `json:"message_ack,omitempty"`

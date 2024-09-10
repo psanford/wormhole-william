@@ -13,7 +13,7 @@ import (
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/klauspost/compress/zip"
-	"github.com/psanford/wormhole-william/wormhole"
+	"github.com/konamata/wormhole/wormhole"
 	"github.com/spf13/cobra"
 )
 

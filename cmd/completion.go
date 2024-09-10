@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/psanford/wormhole-william/internal/crypto"
-	"github.com/psanford/wormhole-william/rendezvous"
-	"github.com/psanford/wormhole-william/wordlist"
-	"github.com/psanford/wormhole-william/wormhole"
+	"github.com/konamata/wormhole/internal/crypto"
+	"github.com/konamata/wormhole/rendezvous"
+	"github.com/konamata/wormhole/wordlist"
+	"github.com/konamata/wormhole/wormhole"
 	"github.com/spf13/cobra"
 )
 
@@ -21,13 +21,13 @@ func completionCommand() *cobra.Command {
 
 Bash:
 
-  $ source <(wormhole-william shell-completion bash)
+  $ source <(wormhole shell-completion bash)
 
   # To configure your bash shell to load completions for each session add to your bashrc
 
 # ~/.bashrc or ~/.profile
-if which wormhole-william &>/dev/null ; then
-  . <(wormhole-william shell-completion bash)
+if which wormhole &>/dev/null ; then
+  . <(wormhole shell-completion bash)
 fi
 
 Zsh:
@@ -38,23 +38,23 @@ Zsh:
   $ echo "autoload -U compinit; compinit" >> ~/.zshrc
 
   # To load completions for each session, execute once:
-  $ wormhole-william shell-completion zsh > "${fpath[1]}/_wormhole-william"
+  $ wormhole shell-completion zsh > "${fpath[1]}/_wormhole"
 
   # You will need to start a new shell for this setup to take effect.
 
 fish:
 
-  $ wormhole-william shell-completion fish | source
+  $ wormhole shell-completion fish | source
 
   # To load completions for each session, execute once:
-  $ wormhole-william shell-completion fish > ~/.config/fish/completions/wormhole-william.fish
+  $ wormhole shell-completion fish > ~/.config/fish/completions/wormhole.fish
 
 PowerShell:
 
-  PS> wormhole-william shell-completion powershell | Out-String | Invoke-Expression
+  PS> wormhole shell-completion powershell | Out-String | Invoke-Expression
 
   # To load completions for every new session, run:
-  PS> wormhole-william shell-completion powershell > wormhole-william.ps1
+  PS> wormhole shell-completion powershell > wormhole.ps1
   # and source this file from your PowerShell profile.
 `,
 		DisableFlagsInUseLine: true,

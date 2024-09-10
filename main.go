@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/psanford/wormhole-william/cmd"
+	"github.com/konamata/wormhole/cmd"
 )
 
 func main() {

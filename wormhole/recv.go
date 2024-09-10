@@ -11,8 +11,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/psanford/wormhole-william/internal/crypto"
-	"github.com/psanford/wormhole-william/rendezvous"
+	"github.com/konamata/wormhole/internal/crypto"
+	"github.com/konamata/wormhole/rendezvous"
 )
 
 // Receive receives a message sent by a wormhole client.
@@ -182,7 +182,7 @@ func (c *Client) Receive(ctx context.Context, code string) (fr *IncomingMessage,
 			rc.Close(ctx, mood)
 		}()
 
-		var errStr = "transfer rejected"
+		errStr := "transfer rejected"
 		answer := &genericMessage{
 			Error: &errStr,
 		}

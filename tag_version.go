@@ -17,12 +17,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/psanford/wormhole-william/version"
+	"github.com/konamata/wormhole/version"
 )
 
-var updateMajor = flag.Bool("major", false, "update major component")
-var updateMinor = flag.Bool("minor", false, "update minor component")
-var updatePatch = flag.Bool("patch", true, "update patch component")
+var (
+	updateMajor = flag.Bool("major", false, "update major component")
+	updateMinor = flag.Bool("minor", false, "update minor component")
+	updatePatch = flag.Bool("patch", true, "update patch component")
+)
 
 func main() {
 	flag.Parse()

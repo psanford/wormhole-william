@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/psanford/wormhole-william/internal/crypto"
+	"github.com/konamata/wormhole/internal/crypto"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/nacl/secretbox"
 )
@@ -79,6 +79,7 @@ func newTransportCryptor(c net.Conn, transitKey []byte, readPurpose, writePurpos
 		writeKey:      writeKey,
 	}
 }
+
 func (d *transportCryptor) Close() error {
 	return d.conn.Close()
 }
@@ -293,7 +294,6 @@ func (t *fileTransport) connectToRelay(ctx context.Context, addr string, success
 func (t *fileTransport) connectToSingleHost(ctx context.Context, addr string, successChan chan net.Conn, failChan chan string) {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", addr)
-
 	if err != nil {
 		failChan <- addr
 		return

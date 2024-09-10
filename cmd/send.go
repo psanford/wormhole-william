@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/cheggaaa/pb/v3"
+	"github.com/konamata/wormhole/wormhole"
 	qrterminal "github.com/mdp/qrterminal/v3"
-	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/spf13/cobra"
 )
 
@@ -88,7 +88,7 @@ func newClient() wormhole.Client {
 
 func printInstructions(code string) {
 	mwCmd := "wormhole receive"
-	wwCmd := "wormhole-william recv"
+	wwCmd := "wormhole recv"
 
 	if verify {
 		mwCmd = mwCmd + " --verify"

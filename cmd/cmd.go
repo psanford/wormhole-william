@@ -3,12 +3,12 @@ package cmd
 import (
 	"os"
 
-	"github.com/psanford/wormhole-william/version"
+	"github.com/konamata/wormhole/version"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "wormhole-william",
+	Use:     "wormhole",
 	Short:   "Create a wormhole and transfer files through it.",
 	Version: version.AgentVersion,
 	Long: `Create a (magic) Wormhole and communicate through it.
