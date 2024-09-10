@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Create Release
-    runs-on: self-hosted
+    runs-on: self-hosted-amd64
     steps:
       - name: Set up Go
         uses: actions/setup-go@v4
