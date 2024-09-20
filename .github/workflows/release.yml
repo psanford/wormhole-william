@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Create Release
-    runs-on: it
+    runs-on: ocean
     steps:
       - name: Set up Go
         uses: actions/setup-go@v4
