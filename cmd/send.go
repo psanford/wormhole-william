@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+        "net/url"
 
 	"github.com/cheggaaa/pb/v3"
 	qrterminal "github.com/mdp/qrterminal/v3"
@@ -99,12 +100,14 @@ func printInstructions(code string) {
 	fmt.Printf("Wormhole code is: %s\n", code)
 
 	if showQRCode {
-		url := relayURL
-		if url == "" {
-			url = wormhole.DefaultRendezvousURL
-		}
-		content := fmt.Sprintf("wormhole:%s?code=%s", url, code)
-		qrterminal.Generate(content, qrterminal.L, os.Stdout)
+		escapedUrl := url.QueryEscape(relayURL)
+		if escapedUrl == "" {
+                        content := fmt.Sprintf("wormhole-transfer:code=%s", code)
+			qrterminal.Generate(content, qrterminal.L, os.Stdout)
+		} else {
+                        content := fmt.Sprintf("wormhole-transfer:code=%s&rendezvous=", code, escapedUrl)
+			qrterminal.Generate(content, qrterminal.L, os.Stdout)
+                }
 	}
 }
 
