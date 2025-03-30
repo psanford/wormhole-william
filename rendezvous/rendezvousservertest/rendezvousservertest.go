@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -32,6 +33,7 @@ func NewServer() *TestServer {
 	ts := &TestServer{
 		mailboxes:  make(map[string]*mailbox),
 		nameplates: make(map[int16]string),
+		agents:     [][]string{},
 	}
 
 	smux := http.NewServeMux()
@@ -177,7 +179,9 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 		sendMu.Lock()
 		defer sendMu.Unlock()
 		err = c.WriteJSON(msg)
-		if err != nil {
+		if errors.Is(err, net.ErrClosed) || errors.Is(err, websocket.ErrCloseSent) {
+			return
+		} else if err != nil {
 			panic(err)
 		}
 	}
