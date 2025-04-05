@@ -9,12 +9,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/klauspost/compress/zip"
 	"github.com/psanford/wormhole-william/wormhole"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func recvCommand() *cobra.Command {
@@ -28,7 +30,7 @@ func recvCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&verify, "verify", "v", false, "display verification string (and wait for approval)")
 	cmd.Flags().BoolVar(&hideProgressBar, "hide-progress", false, "suppress progress-bar display")
 
-	cmd.ValidArgsFunction = recvCodeCompletion
+	cmd.ValidArgsFunction = recvCodeCompletionCobra
 
 	return &cmd
 }
@@ -45,14 +47,11 @@ func recvAction(cmd *cobra.Command, args []string) {
 	}
 
 	if code == "" {
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Enter receive wormhole code: ")
-
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			errf("Error reading from stdin: %s\n", err)
-		}
-		code = strings.TrimSpace(line)
+		code = readCode()
+	}
+	if code == "" {
+		// Consider the action canceled.
+		os.Exit(0)
 	}
 
 	if verify {
@@ -249,6 +248,42 @@ func errf(msg string, args ...interface{}) {
 	if !strings.HasSuffix("\n", msg) {
 		fmt.Fprint(os.Stderr, "\n")
 	}
+}
+
+func readCode() string {
+	prompt := "Enter receive wormhole code: "
+	line := ""
+
+	if runtime.GOOS != "windows" && term.IsTerminal(int(os.Stdin.Fd())) {
+		oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+		if err != nil {
+			errf("Error setting terminal to raw mode: %s\n", err)
+		}
+
+		t := term.NewTerminal(os.Stdin, prompt)
+		t.SetBracketedPasteMode(true)
+		t.AutoCompleteCallback = autoCompleteCode
+
+		line, err = t.ReadLine()
+		term.Restore(int(os.Stdin.Fd()), oldState)
+		if err != nil {
+			fmt.Println()
+			if err.Error() != "EOF" {
+				errf("Error reading from terminal: %s", err)
+			}
+		}
+	} else {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print(prompt)
+
+		var err error
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			errf("Error reading from stdin: %s\n", err)
+		}
+	}
+
+	return strings.TrimSpace(line)
 }
 
 func bail(msg string, args ...interface{}) {

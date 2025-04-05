@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -77,16 +78,20 @@ PowerShell:
 	return cmd
 }
 
-func recvCodeCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func recvCodeCompletionCobra(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	flags := cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
+	return recvCodeCompletion(toComplete), flags
+}
+
+func recvCodeCompletion(toComplete string) []string {
 	parts := strings.Split(toComplete, "-")
 	if len(parts) < 2 {
 		nameplates, err := activeNameplates()
 		if err != nil {
-			return nil, flags
+			return nil
 		}
 		if len(parts) == 0 {
-			return nameplates, flags
+			return nameplates
 		}
 
 		var candidates []string
@@ -96,7 +101,7 @@ func recvCodeCompletion(cmd *cobra.Command, args []string, toComplete string) ([
 			}
 		}
 
-		return candidates, flags
+		return candidates
 	}
 
 	currentCompletion := parts[len(parts)-1]
@@ -120,7 +125,7 @@ func recvCodeCompletion(cmd *cobra.Command, args []string, toComplete string) ([
 		}
 	}
 
-	return candidates, flags
+	return candidates
 }
 
 func activeNameplates() ([]string, error) {
@@ -142,4 +147,98 @@ func activeNameplates() ([]string, error) {
 	}
 
 	return client.ListNameplates(ctx)
+}
+
+func autoCompleteCode(line string, pos int, key rune) (newLine string, newPos int, ok bool) {
+	if key != '\t' {
+		return line, pos, false
+	}
+
+	prefix, word, found := cutLast(line, "-")
+	if !found {
+		return line, pos, false
+	}
+
+	posInWord := pos - len(prefix) - 1
+	if posInWord < 0 {
+		return line, pos, false
+	}
+
+	// wordPrefix is the part of word before and under the cursor.
+	wordPrefix := ""
+	if posInWord == len(word) {
+		wordPrefix = word
+	} else {
+		wordPrefix = word[:posInWord+1]
+	}
+
+	candidates := recvCodeCompletion(prefix + "-" + wordPrefix)
+
+	if candidates == nil || len(candidates) == 0 {
+		return line, pos, false
+	}
+	sort.Strings(candidates)
+
+	if wordPrefix != word || (len(candidates) == 1 && candidates[0] == line) {
+		// We want to replace the whole word or everything after wordPrefix.
+		// In either case, we cycle through the candidates.
+		if wordPrefix == word {
+			// It is a whole word.
+			// Find whole-word replacements.
+			candidates = recvCodeCompletion(prefix + "-")
+			sort.Strings(candidates)
+		}
+
+		newLine, ok = nextCandidate(candidates, word)
+		if !ok {
+			return line, pos, false
+		}
+	} else {
+		// The cursor is placed after a partial word.
+		// Complete the word.
+		newLine = candidates[0]
+	}
+
+	newPos = pos
+	if pos == len(line) {
+		newPos = len(newLine)
+	}
+
+	return newLine, newPos, true
+}
+
+func cutLast(s, sep string) (before, after string, found bool) {
+	i := strings.LastIndex(s, sep)
+	if i == -1 {
+		return
+	}
+
+	before = s[:i]
+	if i < len(s)-1 {
+		after = s[i+1:]
+	}
+	found = true
+
+	return
+}
+
+func nextCandidate(candidates []string, word string) (next string, ok bool) {
+	i := 0
+	candidate := ""
+	for i, candidate = range candidates {
+		_, candidateWord, found := cutLast(candidate, "-")
+		if !found {
+			return "", false
+		}
+		if candidateWord == word {
+			break
+		}
+	}
+
+	i++
+	if i == len(candidates) {
+		i = 0
+	}
+
+	return candidates[i], true
 }
