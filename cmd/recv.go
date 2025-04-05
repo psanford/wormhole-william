@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/cheggaaa/pb/v3"
@@ -253,7 +254,7 @@ func readCode() string {
 	prompt := "Enter receive wormhole code: "
 	line := ""
 
-	if term.IsTerminal(int(os.Stdin.Fd())) {
+	if runtime.GOOS != "windows" && term.IsTerminal(int(os.Stdin.Fd())) {
 		oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 		if err != nil {
 			errf("Error setting terminal to raw mode: %s\n", err)
