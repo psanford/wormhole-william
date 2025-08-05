@@ -22,9 +22,14 @@ var (
 	relayURL        string
 	verify          bool
 	hideProgressBar bool
+
+	versionTemplate = `{{with .Name}}{{printf "%s " .}}{{end}}{{printf "%s" .Version}}
+`
 )
 
 func Execute() error {
+	rootCmd.SetVersionTemplate(versionTemplate)
+
 	rootCmd.PersistentFlags().StringVar(&relayURL, "relay-url", "", "rendezvous relay to use")
 	if relayURL == "" {
 		relayURL = os.Getenv("WORMHOLE_RELAY_URL")
