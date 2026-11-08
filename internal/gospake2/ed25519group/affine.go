@@ -107,7 +107,9 @@ func (a *AffinePoint) Compress() []byte {
 		result = y
 	}
 
-	resultBytes := result.Bytes()
+	// FillBytes keeps leading zeros that Bytes() drops: about 1 point in
+	// 256 would otherwise encode to 31 bytes and break interop.
+	resultBytes := result.FillBytes(make([]byte, 32))
 	reverse(resultBytes)
 	return resultBytes
 }
