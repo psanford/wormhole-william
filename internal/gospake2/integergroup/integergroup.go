@@ -57,7 +57,7 @@ func (i IntegerGroup) PasswordToScalar(pw []byte) *big.Int {
 // ElementToBytes converts given big integer element of the group to bytes
 func (i IntegerGroup) ElementToBytes(x group.Element) []byte {
 	element := x.(IntegerElement)
-	return element.e.Bytes()
+	return element.e.FillBytes(make([]byte, i.params.elementSizeBytes))
 }
 
 // ElementFromBytes converts given byte slice into element of integer group i.
