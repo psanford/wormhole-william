@@ -3,10 +3,10 @@ package integergroup
 import (
 	"crypto/sha256"
 	"fmt"
+	group "github.com/psanford/wormhole-william/internal/gospake2/groups"
 	"golang.org/x/crypto/hkdf"
 	"io"
 	"math/big"
-	group "salsa.debian.org/vasudev/gospake2/groups"
 )
 
 // IntegerGroup defines multiplicative group on integer

@@ -4,10 +4,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	group "github.com/psanford/wormhole-william/internal/gospake2/groups"
 	"golang.org/x/crypto/hkdf"
 	"io"
 	"math/big"
-	group "salsa.debian.org/vasudev/gospake2/groups"
 )
 
 const (
@@ -26,9 +26,10 @@ func (e Ed25519) Order() *big.Int {
 // ConstM returns the constant M used in SPAKE2 calculation
 // Value returned by this function is calculated using following python code
 // from python-spake2 module
-//    from spake2.parameters.ed25519 import ParamsEd25519
-//    from spake2.ed25519_basic import bytes_to_scalar
-//    bytes_to_scalar(ParamsEd25519.M.to_bytes())
+//
+//	from spake2.parameters.ed25519 import ParamsEd25519
+//	from spake2.ed25519_basic import bytes_to_scalar
+//	bytes_to_scalar(ParamsEd25519.M.to_bytes())
 func (e Ed25519) ConstM() group.Element {
 
 	m := NewExtendedPoint("56927089134650063917108264664726782351583691551656041986296774399829515120240",
@@ -43,9 +44,10 @@ func (e Ed25519) ConstM() group.Element {
 // ConstN returns the constant N used in SPAKE2 calculation
 // Value returned by this function is calculated using following python code
 // from python-spake2 module
-//    from spake2.parameters.ed25519 import ParamsEd25519
-//    from spake2.ed25519_basic import bytes_to_scalar
-//    bytes_to_scalar(ParamsEd25519.N.to_bytes())
+//
+//	from spake2.parameters.ed25519 import ParamsEd25519
+//	from spake2.ed25519_basic import bytes_to_scalar
+//	bytes_to_scalar(ParamsEd25519.N.to_bytes())
 func (e Ed25519) ConstN() group.Element {
 	n := NewExtendedPoint("15903238113875359836900376779791899664561194955980904569164235593617176720895",
 		"38024333869928680745616530565069024418801734790741445043615018844805300807425",
@@ -58,9 +60,10 @@ func (e Ed25519) ConstN() group.Element {
 // ConstS returns the constant S used in SPAKE2 calculation in symmetric mode
 // Value returned by this function is calculated using following python code
 // from python-spake2 module
-//    from spake2.parameters.ed25519 import ParamsEd25519
-//    from spake2.ed25519_basic import bytes_to_scalar
-//    bytes_to_scalar(ParamsEd25519.S.to_bytes())
+//
+//	from spake2.parameters.ed25519 import ParamsEd25519
+//	from spake2.ed25519_basic import bytes_to_scalar
+//	bytes_to_scalar(ParamsEd25519.S.to_bytes())
 func (e Ed25519) ConstS() group.Element {
 	s := NewExtendedPoint("42960444209218251544344527087824519707974677500306009565627609123593631169755",
 		"39430222967524752293884418340292706746154554371772410286106694871784341014053",

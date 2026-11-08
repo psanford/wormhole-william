@@ -2,7 +2,8 @@
 // governed by either the MIT License or the GNU General Public License v3
 // or later. The license text can be found in the LICENSE file.
 
-/*Package gospake2 implements SPAKE2, password authenticated key exchange (PAKE)
+/*
+Package gospake2 implements SPAKE2, password authenticated key exchange (PAKE)
 algorithm. This allows 2 parties who have weak shared password to safely
 derive a strong shared secret and build encrypted+authenticated communication
 channel between them.
@@ -27,8 +28,8 @@ import (
 	"fmt"
 	"math/big"
 
-	ed25519 "salsa.debian.org/vasudev/gospake2/ed25519group"
-	group "salsa.debian.org/vasudev/gospake2/groups"
+	ed25519 "github.com/psanford/wormhole-william/internal/gospake2/ed25519group"
+	group "github.com/psanford/wormhole-william/internal/gospake2/groups"
 )
 
 var (
@@ -170,13 +171,13 @@ func (s *SPAKE2) setXyScalar(n *big.Int) {
 //
 // Integer Group
 //
-//     Side A  x <-Zp X <- g^x; X* <- X*M^pw
-//     Side B  y <-Zp Y <- g^y; Y* <- Y*N^pw
+//	Side A  x <-Zp X <- g^x; X* <- X*M^pw
+//	Side B  y <-Zp Y <- g^y; Y* <- Y*N^pw
 //
 // Elliptic Curve Group
 //
-//     Side A x <- Ed25519 X <- B*x; X* <- X + M*pw
-//     Side B y <- Ed25519 Y <- B*y; Y* <- Y + N*pw
+//	Side A x <- Ed25519 X <- B*x; X* <- X + M*pw
+//	Side B y <- Ed25519 Y <- B*y; Y* <- Y + N*pw
 //
 // Calculated X* and Y* are byte slices in little-endian format.
 //
@@ -283,18 +284,18 @@ func generateKey(side userSide, password Password, idA IdentityA, idB IdentityB,
 //
 // Integer Group
 //
-//     Side A: Ka <- (Y*/N^pw)^x
-//     Side B: Kb <- (X*/M^pw)^y
+//	Side A: Ka <- (Y*/N^pw)^x
+//	Side B: Kb <- (X*/M^pw)^y
 //
 // Eliptic Curve Group Ed25519
 //
-//     Side A: Ka <- (Y* + N*-pw)*x
-//     Side B: Kb <- (X + M*-pw)*y
+//	Side A: Ka <- (Y* + N*-pw)*x
+//	Side B: Kb <- (X + M*-pw)*y
 //
 // Due to mathematical properties SKa will be same as SKb which will be used as
 // shared secret by both parties to setup encrypted-authenticated channel.
 //
-// Key Derivation
+// # Key Derivation
 //
 // Final key in SPAKE2 calculation is actually Hash of session identification,
 // which is transcript of conversation between the two parties. Transcript in
@@ -302,12 +303,12 @@ func generateKey(side userSide, password Password, idA IdentityA, idB IdentityB,
 // that should be same for both side. So mathematically key is defined as
 // follows
 //
-//      H(A,B,X*, Y*, K, pw)
+//	H(A,B,X*, Y*, K, pw)
 //
 // In this implementation instead of using identities and password directly
 // calculates their SHA256 hash and uses it in transcript.
 //
-// Ed25519 Group example transcript
+// # Ed25519 Group example transcript
 //
 // For Ed25519 since element size is 32 bytes transcript size will be either 192
 // bytes (6 * 32) or 160 bytes (5 * 32) depending on if we are using Asymmetric
@@ -315,19 +316,20 @@ func generateKey(side userSide, password Password, idA IdentityA, idB IdentityB,
 //
 // Transcript Symmetric mode
 //
-//  0..31   -> SHA256(password)
-//  32..63  -> SHA256(idA)
-//  64..95  -> SHA256(idB)
-//  96..127 ->  mA
-//  128..159 -> mB
-//  160..191 -> K
+//	0..31   -> SHA256(password)
+//	32..63  -> SHA256(idA)
+//	64..95  -> SHA256(idB)
+//	96..127 ->  mA
+//	128..159 -> mB
+//	160..191 -> K
 //
 // Transcript for Symmetric mode
-//  0..31   -> SHA256(password)
-//  32..63  -> SHA256(id)
-//  64..95  -> m1 or m2
-//  96..127 -> m2 or m1
-//  128..159 -> K
+//
+//	0..31   -> SHA256(password)
+//	32..63  -> SHA256(id)
+//	64..95  -> m1 or m2
+//	96..127 -> m2 or m1
+//	128..159 -> K
 //
 // In symmetric mode since we do not know which is the exchange message from
 // which side we sort both slices m1 and m2 and use it. i.e if m1 < m2 then (m1,

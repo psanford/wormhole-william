@@ -1,8 +1,8 @@
 package ed25519group
 
 import (
+	group "github.com/psanford/wormhole-william/internal/gospake2/groups"
 	"math/big"
-	group "salsa.debian.org/vasudev/gospake2/groups"
 	"testing"
 )
 

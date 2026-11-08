@@ -3,10 +3,10 @@ package gospake2
 import (
 	"bytes"
 	"fmt"
+	"github.com/psanford/wormhole-william/internal/gospake2/ed25519group"
+	group "github.com/psanford/wormhole-william/internal/gospake2/groups"
+	"github.com/psanford/wormhole-william/internal/gospake2/integergroup"
 	"math/big"
-	"salsa.debian.org/vasudev/gospake2/ed25519group"
-	group "salsa.debian.org/vasudev/gospake2/groups"
-	"salsa.debian.org/vasudev/gospake2/integergroup"
 	"testing"
 )
 

@@ -3,8 +3,8 @@ package ed25519group
 import (
 	"bytes"
 	"fmt"
+	group "github.com/psanford/wormhole-william/internal/gospake2/groups"
 	"math/big"
-	group "salsa.debian.org/vasudev/gospake2/groups"
 )
 
 // ExtendedPoint represents co-ordinate on twisted edwards curve derived from Affine Points

@@ -41,5 +41,3 @@ nhooyr.io/websocket v1.8.17 h1:KEVeLJkUywCKVsnLIDlD/5gtayKp8VoCkksHCGGfT9Y=
 nhooyr.io/websocket v1.8.17/go.mod h1:rN9OFWIUwuxg4fR5tELlYC04bXYowCP9GX47ivo2l+c=
 rsc.io/qr v0.2.0 h1:6vBLea5/NRMVTz8V66gipeLycZMl/+UlFmk8DvqQ6WY=
 rsc.io/qr v0.2.0/go.mod h1:IF+uZjkb9fqyeF/4tlBoynqmQxUoPfWEKh921coOuXs=
-salsa.debian.org/vasudev/gospake2 v0.0.0-20210510093858-d91629950ad1 h1:m65DhEZR/5zbgOGW4sQGDZmIwro+xBGIBQGWm43SlxM=
-salsa.debian.org/vasudev/gospake2 v0.0.0-20210510093858-d91629950ad1/go.mod h1:soKzqXBAtqHTODjyA0VzH2iERtpzN1w65eZUfetn2cQ=
