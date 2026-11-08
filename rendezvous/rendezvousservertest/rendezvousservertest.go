@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -178,8 +179,9 @@ func (ts *TestServer) handleWS(w http.ResponseWriter, r *http.Request) {
 		prepareServerMsg(msg)
 		sendMu.Lock()
 		defer sendMu.Unlock()
-		err = c.WriteJSON(msg)
-		if errors.Is(err, net.ErrClosed) || errors.Is(err, websocket.ErrCloseSent) {
+		err := c.WriteJSON(msg)
+		if errors.Is(err, net.ErrClosed) || errors.Is(err, websocket.ErrCloseSent) ||
+			errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
 			return
 		} else if err != nil {
 			panic(err)
