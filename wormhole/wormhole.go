@@ -16,10 +16,10 @@ import (
 	"sync"
 
 	"github.com/psanford/wormhole-william/internal/crypto"
+	"github.com/psanford/wormhole-william/internal/gospake2"
 	"github.com/psanford/wormhole-william/rendezvous"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/nacl/secretbox"
-	"salsa.debian.org/vasudev/gospake2"
 )
 
 // A Client is wormhole client. Its zero value is a usable client.
